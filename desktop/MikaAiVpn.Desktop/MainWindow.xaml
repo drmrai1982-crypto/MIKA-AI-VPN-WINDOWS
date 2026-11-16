@@ -108,9 +108,17 @@
                 <Border Style="{StaticResource PanelStyle}">
                     <StackPanel>
                         <TextBlock Text="DIAGNOSTICS" Style="{StaticResource SmallLabel}"/>
-                        <TextBlock x:Name="DiagnosticsText" Text="Native FFI: not loaded&#10;Wintun: not verified in this desktop session&#10;Tunnel: unavailable"
-                                   Foreground="{StaticResource MutedBrush}" FontSize="12"
-                                   TextWrapping="Wrap" Margin="0,12,0,0" LineHeight="22"/>
+                        <Button x:Name="DiagnosticsButton" Content="Inspect core and engines"
+                                Click="DiagnosticsButton_Click" Margin="0,12,0,10"
+                                Padding="12,8" HorizontalAlignment="Stretch"
+                                Background="#173329" Foreground="#00FF66"
+                                BorderBrush="#286B4B"/>
+                        <ScrollViewer MaxHeight="230" VerticalScrollBarVisibility="Auto">
+                            <TextBlock x:Name="DiagnosticsText"
+                                       Text="Inspection has not been run. This test does not start a tunnel."
+                                       Foreground="{StaticResource MutedBrush}" FontSize="12"
+                                       TextWrapping="Wrap" Margin="0,4,0,0" LineHeight="20"/>
+                        </ScrollViewer>
                     </StackPanel>
                 </Border>
             </StackPanel>
