@@ -86,9 +86,9 @@ def render_borders(image: Image.Image, geojson: dict) -> Image.Image:
             for segment in split_dateline(points):
                 if len(segment) < 2:
                     continue
-                # Soft cyan outer trace with a crisp pale-blue/ivory centre line.
-                glow_draw.line(segment, fill=(48, 166, 224, 92), width=8, joint="curve")
-                fine_draw.line(segment, fill=(166, 207, 226, 176), width=2, joint="curve")
+                # Warm champagne-gold outer trace with a crisp pale-gold centre line.
+                glow_draw.line(segment, fill=(216, 181, 106, 105), width=7, joint="curve")
+                fine_draw.line(segment, fill=(255, 224, 158, 220), width=2, joint="curve")
 
                 # Keep tiny islands visible at this global viewing scale.
                 if len(segment) >= 4:
@@ -98,7 +98,7 @@ def render_borders(image: Image.Image, geojson: dict) -> Image.Image:
                         cx = sum(xs) // len(xs)
                         cy = sum(ys) // len(ys)
                         fine_draw.ellipse((cx - 2, cy - 2, cx + 2, cy + 2),
-                                          fill=(205, 222, 230, 190))
+                                          fill=(255, 224, 158, 225))
 
     composed = Image.alpha_composite(image.convert("RGBA"), glow)
     composed = Image.alpha_composite(composed, fine)
@@ -125,7 +125,7 @@ def main() -> int:
         if base.size != (13500, 6750):
             print(f"Note: NASA texture size is {base.size}; expected 13500x6750.", file=sys.stderr)
         # Brighten terrain and coast detail while preserving the black-ocean night look.
-        base = ImageEnhance.Brightness(base).enhance(1.42)
+        base = ImageEnhance.Brightness(base).enhance(1.55)
         base = ImageEnhance.Color(base).enhance(1.16)
         base = ImageEnhance.Contrast(base).enhance(1.07)
         result = render_borders(base, data)
