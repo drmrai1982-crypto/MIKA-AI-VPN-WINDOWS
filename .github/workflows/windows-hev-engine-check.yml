@@ -159,12 +159,27 @@ jobs:
           Copy-Item $dll (Join-Path $env:GITHUB_WORKSPACE 'hev-engine/fcae_ffi.dll') -Force
           Write-Host "HEV-enabled Windows FFI static library built: $lib"
           Write-Host "Windows desktop C ABI DLL staged: $dll"
-          $exports = dumpbin /exports (Join-Path $env:GITHUB_WORKSPACE 'hev-engine/fcae_ffi.dll')
-          if ($LASTEXITCODE -ne 0) { throw 'Could not inspect Windows FFI DLL exports.' }
-          $exports | Select-String 'fcae_init|fcae_config_default|fcae_start|fcae_stop|fcae_last_error'
-          foreach ($symbol in @('fcae_init','fcae_config_default','fcae_start','fcae_stop','fcae_last_error')) {
-            if (-not ($exports -match $symbol)) { throw "Required C ABI export missing: $symbol" }
+          Add-Type -TypeDefinition @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class FcaeDllCheck {
+              [DllImport("kernel32", CharSet=CharSet.Unicode, SetLastError=true)]
+              public static extern bool SetDllDirectory(string path);
+              [DllImport("kernel32", CharSet=CharSet.Unicode, SetLastError=true)]
+              public static extern IntPtr LoadLibrary(string path);
+              [DllImport("kernel32", CharSet=CharSet.Ansi, SetLastError=true)]
+              public static extern IntPtr GetProcAddress(IntPtr module, string name);
           }
+          '@
+          $stage = Join-Path $env:GITHUB_WORKSPACE 'hev-engine'
+          if (-not [FcaeDllCheck]::SetDllDirectory($stage)) { throw 'Could not set native DLL search directory.' }
+          $module = [FcaeDllCheck]::LoadLibrary((Join-Path $stage 'fcae_ffi.dll'))
+          if ($module -eq [IntPtr]::Zero) { throw "Could not load fcae_ffi.dll: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())" }
+          foreach ($symbol in @('fcae_init','fcae_config_default','fcae_start','fcae_stop','fcae_last_error')) {
+            if ([FcaeDllCheck]::GetProcAddress($module, $symbol) -eq [IntPtr]::Zero) { throw "Required C ABI export missing: $symbol" }
+            Write-Host "FOUND C ABI export $symbol"
+          }
+          Write-Host 'MIKA FCAE C ABI DLL loaded successfully in native Windows.'
 
       - name: Upload HEV engine and runtime dependencies
         uses: actions/upload-artifact@v4
