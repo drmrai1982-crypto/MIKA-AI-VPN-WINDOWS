@@ -2,7 +2,7 @@ name: Windows desktop shell build
 
 on:
   push:
-    branches: [main]
+    branches: [main, "ui/radar-neon-node-network"]
     paths:
       - "desktop/**"
       - ".github/workflows/windows-desktop-build.yml"
