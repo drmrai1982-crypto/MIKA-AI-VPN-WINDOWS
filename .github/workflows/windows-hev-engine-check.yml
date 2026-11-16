@@ -150,7 +150,7 @@ jobs:
           if (-not $manifestText.Contains('crate-type = ["staticlib"]')) { throw 'Unexpected upstream FFI crate-type; refusing manifest rewrite.' }
           $manifestText = $manifestText.Replace('crate-type = ["staticlib"]', 'crate-type = ["staticlib", "cdylib"]')
           Set-Content -Path $manifest -Value $manifestText -Encoding utf8
-          cargo build -p fcae-ffi --release --no-default-features --features "hev tun fcae-bridge-tun2socks/stub" --target x86_64-pc-windows-msvc
+          cargo build -p fcae-ffi --release --no-default-features --features "aether hev tun fcae-bridge-tun2socks/stub" --target x86_64-pc-windows-msvc
           $release = Join-Path $PWD 'target/x86_64-pc-windows-msvc/release'
           $lib = Join-Path $release 'fcae_ffi.lib'
           $dll = Join-Path $release 'fcae_ffi.dll'
