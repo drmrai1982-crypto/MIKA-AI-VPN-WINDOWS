@@ -67,7 +67,7 @@ public partial class MainWindow : Window
     {
         // NASA Black Marble equirectangular night-lights map is downloaded by CI
         // and bundled with the app, so the globe works offline after installation.
-        string texturePath = Path.Combine(AppContext.BaseDirectory, "assets", "earth-night.jpg");
+        string texturePath = System.IO.Path.Combine(AppContext.BaseDirectory, "assets", "earth-night.jpg");
         if (!File.Exists(texturePath))
             throw new FileNotFoundException("The bundled NASA Earth night texture is missing.", texturePath);
 
@@ -193,8 +193,8 @@ public partial class MainWindow : Window
         DiagnosticsText.Text = _isPersian ? "در حال بررسی هسته..." : "Inspecting native core...";
         try
         {
-            var dir = Path.Combine(AppContext.BaseDirectory, "hev-engine");
-            if (!File.Exists(Path.Combine(dir, "fcae_ffi.dll")))
+            var dir = System.IO.Path.Combine(AppContext.BaseDirectory, "hev-engine");
+            if (!File.Exists(System.IO.Path.Combine(dir, "fcae_ffi.dll")))
             {
                 DiagnosticsText.Text = _isPersian ? "فایل‌های هسته پیدا نشدند." : "Native core files were not found.";
                 return;
