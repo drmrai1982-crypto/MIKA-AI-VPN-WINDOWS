@@ -5,6 +5,7 @@ on:
     branches: [main, "ui/radar-neon-node-network"]
     paths:
       - "desktop/**"
+      - "scripts/**"
       - ".github/workflows/windows-desktop-build.yml"
   workflow_dispatch:
 
@@ -51,6 +52,11 @@ jobs:
 
       - name: Publish Windows x64 application
         run: dotnet publish desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj --configuration Release --no-restore --output artifacts/windows-x64
+
+      - name: Set up Python for Earth texture renderer
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Prepare brighter Earth texture with country and island borders
         shell: pwsh
