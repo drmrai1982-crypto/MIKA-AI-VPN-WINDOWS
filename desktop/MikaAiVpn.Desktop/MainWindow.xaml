@@ -80,9 +80,7 @@
        </Line>
       </Canvas>
       <Canvas x:Name="RadarNodesCanvas" Width="174" Height="174" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,4" IsHitTestVisible="False"/>
-      <Ellipse Width="10" Height="10" Canvas.Left="82" Canvas.Top="82" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,86" Fill="#E8FFFFFF" IsHitTestVisible="False">
-       <Ellipse.Effect><DropShadowEffect Color="#50E6FF" BlurRadius="18" ShadowDepth="0" Opacity="1"/></Ellipse.Effect>
-      </Ellipse>
+
      </Grid>
      <StackPanel Grid.Row="2" HorizontalAlignment="Center" Margin="0,0,0,4">
       <TextBlock x:Name="ConnectionState" Text="CORE READY · TUNNEL NOT STARTED" Foreground="#FFC46B" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center"/>
