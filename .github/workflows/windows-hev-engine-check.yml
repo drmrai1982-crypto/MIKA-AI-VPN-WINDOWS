@@ -44,6 +44,13 @@ jobs:
           set -euo pipefail
           cd upstream-source/app/src/main/cpp/hev
 
+          # The upstream checkout omits its optional Wintun third-party directory.
+          # Supply the official API header expected by the upstream Makefile.
+          mkdir -p third-part/wintun/include
+          curl -fsSL https://raw.githubusercontent.com/WireGuard/wintun/master/api/wintun.h \\
+            -o third-part/wintun/include/wintun.h
+          test -s third-part/wintun/include/wintun.h
+
           # This source selects its Windows Wintun/IOCP implementation under __MSYS__.
           # The MSYS environment is intentional; MinGW-only compilation is not equivalent.
           make tp-shared shared
