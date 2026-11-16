@@ -79,6 +79,44 @@ jobs:
           test -s "$STAGE/msys-2.0.dll"
           objdump -p "$STAGE/libhev-socks5-tunnel.dll" | grep "DLL Name"
 
+      - name: Verify native DLL loading and bridge exports
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:GITHUB_WORKSPACE 'hev-engine'
+          if (-not (Test-Path (Join-Path $dir 'libhev-socks5-tunnel.dll'))) { throw 'HEV DLL missing' }
+          if (-not (Test-Path (Join-Path $dir 'msys-2.0.dll'))) { throw 'MSYS runtime missing' }
+
+          Add-Type -TypeDefinition @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class NativeLoaderCheck {
+              [DllImport("kernel32", CharSet=CharSet.Unicode, SetLastError=true)]
+              public static extern bool SetDllDirectory(string path);
+              [DllImport("kernel32", CharSet=CharSet.Unicode, SetLastError=true)]
+              public static extern IntPtr LoadLibrary(string path);
+              [DllImport("kernel32", CharSet=CharSet.Ansi, SetLastError=true)]
+              public static extern IntPtr GetProcAddress(IntPtr module, string name);
+          }
+          '@
+
+          if (-not [NativeLoaderCheck]::SetDllDirectory($dir)) { throw "SetDllDirectory failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())" }
+          $msys = [NativeLoaderCheck]::LoadLibrary((Join-Path $dir 'msys-2.0.dll'))
+          if ($msys -eq [IntPtr]::Zero) { throw "LoadLibrary(msys-2.0.dll) failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())" }
+          $init = [NativeLoaderCheck]::GetProcAddress($msys, 'msys_dll_init')
+          if ($init -eq [IntPtr]::Zero) { throw 'msys_dll_init export missing' }
+          $initDelegate = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($init, [Action])
+          $initDelegate.Invoke()
+
+          $engine = [NativeLoaderCheck]::LoadLibrary((Join-Path $dir 'libhev-socks5-tunnel.dll'))
+          if ($engine -eq [IntPtr]::Zero) { throw "LoadLibrary(HEV) failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())" }
+          $required = @('hev_socks5_tunnel_main_from_str', 'hev_socks5_tunnel_quit', 'hev_socks5_tunnel_stats')
+          foreach ($symbol in $required) {
+            if ([NativeLoaderCheck]::GetProcAddress($engine, $symbol) -eq [IntPtr]::Zero) { throw "Required bridge export missing: $symbol" }
+            Write-Host "FOUND $symbol"
+          }
+          Write-Host 'HEV DLL loaded successfully in a native Windows process.'
+
       - name: Upload HEV engine and runtime dependencies
         uses: actions/upload-artifact@v4
         with:
