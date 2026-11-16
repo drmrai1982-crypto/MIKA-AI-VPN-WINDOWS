@@ -1,0 +1,39 @@
+name: Windows native bridge check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "native/MikaNativeBridge/**"
+      - ".github/workflows/windows-native-bridge.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-native-bridge:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Windows project
+        uses: actions/checkout@v4
+
+      - name: Configure MSVC x64
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build native diagnostic bridge
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path build/native | Out-Null
+          cl /nologo /LD /EHsc /std:c++17 /W4 /WX /I native/MikaNativeBridge/include native/MikaNativeBridge/src/MikaNativeBridge.cpp /link /OUT:build/native/MikaNativeBridge.dll
+          if (-not (Test-Path build/native/MikaNativeBridge.dll)) { throw 'Native bridge DLL was not produced.' }
+
+      - name: Upload native bridge
+        uses: actions/upload-artifact@v4
+        with:
+          name: mika-native-bridge-windows-x64
+          path: build/native/MikaNativeBridge.dll
+          if-no-files-found: error
