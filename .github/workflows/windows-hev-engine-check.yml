@@ -52,7 +52,7 @@ jobs:
 
           # This source selects its Windows Wintun/IOCP implementation under __MSYS__.
           # The MSYS environment is intentional; MinGW-only compilation is not equivalent.
-          make tp-shared shared
+          make tp-static shared
 
           ENGINE="$PWD/bin/libhev-socks5-tunnel.so"
           test -s "$ENGINE"
