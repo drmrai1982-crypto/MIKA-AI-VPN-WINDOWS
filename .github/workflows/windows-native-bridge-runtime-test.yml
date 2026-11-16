@@ -1,0 +1,68 @@
+name: Windows Native Bridge Runtime Probe
+
+on:
+  push:
+    paths:
+      - ".github/workflows/windows-native-bridge-runtime-test.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    steps:
+      - name: Download native bridge artifact
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 43918971282 --repo drmrai1982-crypto/MIKA-AI-VPN-WINDOWS --name mika-native-bridge-windows-x64 --dir "$env:RUNNER_TEMP\mika-bridge"
+
+      - name: Download HEV and FCAE runtime artifact
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 43916105641 --repo drmrai1982-crypto/MIKA-AI-VPN-WINDOWS --name mika-hev-windows-x64 --dir "$env:RUNNER_TEMP\mika-hev"
+
+      - name: Load bridge and probe FCAE ABI
+        shell: pwsh
+        run: |
+          $bridge = Join-Path $env:RUNNER_TEMP "mika-bridge\MikaNativeBridge.dll"
+          $ffiDir = Join-Path $env:RUNNER_TEMP "mika-hev\hev-engine"
+          if (!(Test-Path $bridge)) { throw "Native bridge DLL was not downloaded: $bridge" }
+          if (!(Test-Path (Join-Path $ffiDir "fcae_ffi.dll"))) { throw "FCAE DLL was not downloaded: $ffiDir" }
+
+          @'
+          import ctypes
+          import pathlib
+          import sys
+
+          bridge_path = pathlib.Path(sys.argv[1])
+          ffi_dir = pathlib.Path(sys.argv[2])
+
+          bridge = ctypes.WinDLL(str(bridge_path))
+          expected = bridge.mika_native_expected_abi
+          expected.argtypes = []
+          expected.restype = ctypes.c_uint32
+
+          probe = bridge.mika_native_probe
+          probe.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_wchar), ctypes.c_uint32]
+          probe.restype = ctypes.c_int32
+
+          expected_abi = expected()
+          print(f"Header ABI expected by bridge: {expected_abi}")
+          if expected_abi != 19:
+              raise SystemExit(f"Unexpected header ABI: {expected_abi}")
+
+          message = ctypes.create_unicode_buffer(512)
+          result = probe(str(ffi_dir), message, len(message))
+          print(f"Probe result: {result}")
+          print(f"Probe message: {message.value}")
+          if result != 0:
+              raise SystemExit(f"Native bridge probe failed with code {result}")
+          print("PASS: bridge loaded FCAE DLL, found required exports, and verified ABI.")
+          '@ | python - $bridge $ffiDir
