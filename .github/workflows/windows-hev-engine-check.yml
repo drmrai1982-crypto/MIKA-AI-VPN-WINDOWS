@@ -1,0 +1,83 @@
+name: Windows HEV native engine build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/windows-hev-engine-check.yml"
+      - "UPSTREAM.md"
+      - "docs/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-hev:
+    name: Build HEV Windows DLL with MSYS2
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Windows project
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned upstream source
+        uses: actions/checkout@v4
+        with:
+          repository: drmrai1982-crypto/MIKA-AI-VPN
+          ref: 73de903180e5d54b004b4338ad11355b0faf8609
+          path: upstream-source
+          persist-credentials: false
+
+      - name: Install MSYS2 build tools
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          update: true
+          install: >-
+            make
+            gcc
+            binutils
+
+      - name: Build Windows HEV engine DLL
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          cd upstream-source/app/src/main/cpp/hev
+
+          # This source selects its Windows Wintun/IOCP implementation under __MSYS__.
+          # The MSYS environment is intentional; MinGW-only compilation is not equivalent.
+          make tp-shared shared
+
+          ENGINE="$PWD/bin/libhev-socks5-tunnel.so"
+          test -s "$ENGINE"
+
+          export LD_LIBRARY_PATH="$PWD/third-part/yaml/bin:$PWD/third-part/lwip/bin:$PWD/third-part/hev-task-system/bin:/usr/bin"
+          ldd "$ENGINE" | tee "$GITHUB_WORKSPACE/hev-ldd.txt"
+          ! grep -q "not found" "$GITHUB_WORKSPACE/hev-ldd.txt"
+
+          STAGE="$GITHUB_WORKSPACE/hev-engine"
+          mkdir -p "$STAGE"
+          cp "$ENGINE" "$STAGE/libhev-socks5-tunnel.dll"
+
+          # Collect the non-Windows runtime dependencies reported by ldd.
+          sed -nE 's/.*=> ([^ ]+).*/\1/p; s/^([^ ]+) \(.*/\1/p' "$GITHUB_WORKSPACE/hev-ldd.txt" |
+            grep '^/' | sort -u |
+            while IFS= read -r dep; do
+              case "$dep" in
+                /c/Windows/*|/C/Windows/*) continue ;;
+              esac
+              if [ -f "$dep" ]; then cp -f "$dep" "$STAGE/"; fi
+            done
+
+          test -s "$STAGE/libhev-socks5-tunnel.dll"
+          test -s "$STAGE/msys-2.0.dll"
+          objdump -p "$STAGE/libhev-socks5-tunnel.dll" | grep "DLL Name"
+
+      - name: Upload HEV engine and runtime dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: mika-hev-windows-x64
+          path: |
+            hev-engine/*
+            hev-ldd.txt
+          if-no-files-found: error
