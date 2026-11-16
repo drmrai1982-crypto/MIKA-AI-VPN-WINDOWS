@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Media3D;
+using System.Windows.Media.Effects;
 using System.Windows.Threading;
 
 namespace MikaAiVpn.Desktop;
@@ -192,6 +193,19 @@ public partial class MainWindow : Window
                 RenderTransform = new TranslateTransform(point.X - center - 2.75, point.Y - center - 2.75)
             });
         }
+
+        var centerNode = new Ellipse
+        {
+            Width = 8, Height = 8,
+            Fill = new SolidColorBrush(Color.FromRgb(218, 255, 250)),
+            Effect = new DropShadowEffect
+            {
+                Color = Color.FromRgb(80, 230, 255), BlurRadius = 18, ShadowDepth = 0, Opacity = 1
+            }
+        };
+        Canvas.SetLeft(centerNode, center - 4);
+        Canvas.SetTop(centerNode, center - 4);
+        RadarNodesCanvas.Children.Add(centerNode);
     }
 
     // Call only after the real tunnel controller confirms an established VPN session.
