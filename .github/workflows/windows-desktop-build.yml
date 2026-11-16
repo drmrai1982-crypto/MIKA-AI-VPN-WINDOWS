@@ -10,14 +10,36 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build-desktop:
-    name: Build WPF desktop shell (x64)
+    name: Build WPF desktop app with native diagnostics (x64)
     runs-on: windows-latest
     steps:
       - name: Checkout Windows project
         uses: actions/checkout@v4
+
+      - name: Download native bridge and FCAE runtime
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $nativeDir = "desktop/MikaAiVpn.Desktop/native-runtime"
+          $bridgeDir = Join-Path $env:RUNNER_TEMP "mika-bridge"
+          $hevDir = Join-Path $env:RUNNER_TEMP "mika-hev"
+          New-Item -ItemType Directory -Force -Path $nativeDir | Out-Null
+
+          gh run download 43919889136 --repo drmrai1982-crypto/MIKA-AI-VPN-WINDOWS --name mika-native-bridge-windows-x64 --dir $bridgeDir
+          gh run download 43916105641 --repo drmrai1982-crypto/MIKA-AI-VPN-WINDOWS --name mika-hev-windows-x64 --dir $hevDir
+
+          $bridgeDll = Join-Path $bridgeDir "MikaNativeBridge.dll"
+          $engineDir = Join-Path $hevDir "hev-engine"
+          if (!(Test-Path $bridgeDll)) { throw "Native bridge artifact is incomplete." }
+          if (!(Test-Path (Join-Path $engineDir "fcae_ffi.dll"))) { throw "FCAE runtime artifact is incomplete." }
+
+          Copy-Item $bridgeDll $nativeDir -Force
+          Copy-Item $engineDir (Join-Path $nativeDir "hev-engine") -Recurse -Force
 
       - name: Install .NET 8 SDK
         uses: actions/setup-dotnet@v4
@@ -27,5 +49,12 @@ jobs:
       - name: Restore
         run: dotnet restore desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj
 
-      - name: Build
-        run: dotnet build desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj --configuration Release --no-restore
+      - name: Publish Windows x64 application
+        run: dotnet publish desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj --configuration Release --no-restore --output artifacts/windows-x64
+
+      - name: Upload Windows x64 application
+        uses: actions/upload-artifact@v4
+        with:
+          name: mika-ai-vpn-windows-x64
+          path: artifacts/windows-x64/
+          if-no-files-found: error
