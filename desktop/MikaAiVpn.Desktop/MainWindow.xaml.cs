@@ -115,13 +115,13 @@ public partial class MainWindow : Window
     private void RefreshRadarNetwork()
     {
         const int pointCount = 7;
-        const double center = 105;
+        const double center = 125;
         var points = new Point[pointCount];
 
         for (int i = 0; i < pointCount; i++)
         {
             double angle = -Math.PI / 2 + (2 * Math.PI * i / pointCount);
-            double radius = 69 + 5 * Math.Sin(i * 1.73);
+            double radius = 82 + 4 * Math.Sin(i * 1.73);
             points[i] = new Point(
                 center + Math.Cos(angle) * radius,
                 center + Math.Sin(angle) * radius);
@@ -151,7 +151,7 @@ public partial class MainWindow : Window
                 RadarNodesCanvas.Children.Add(new Line
                 {
                     X1 = a.X, Y1 = a.Y, X2 = b.X, Y2 = b.Y,
-                    Stroke = coreBrush, StrokeThickness = 2.25, Opacity = 1
+                    Stroke = coreBrush, StrokeThickness = 1.55, Opacity = 0.92
                 });
             }
         }
@@ -160,7 +160,7 @@ public partial class MainWindow : Window
         {
             var halo = new Ellipse
             {
-                Width = 30, Height = 30,
+                Width = 26, Height = 26,
                 Fill = new RadialGradientBrush(new GradientStopCollection {
                     new GradientStop(Color.FromArgb(230, signal.R, signal.G, signal.B), 0.0),
                     new GradientStop(Color.FromArgb(170, signal.R, signal.G, signal.B), 0.30),
@@ -175,7 +175,7 @@ public partial class MainWindow : Window
 
             var node = new Ellipse
             {
-                Width = 11, Height = 11,
+                Width = 8, Height = 8,
                 Fill = new SolidColorBrush(Color.FromRgb(255, 246, 235)),
                 Stroke = coreBrush,
                 StrokeThickness = 2,
@@ -191,7 +191,7 @@ public partial class MainWindow : Window
 
         var centerNode = new Ellipse
         {
-            Width = 12, Height = 12,
+            Width = 10, Height = 10,
             Fill = new SolidColorBrush(Color.FromRgb(218, 255, 250)),
             Effect = new DropShadowEffect
             {
