@@ -2,7 +2,7 @@ name: Windows desktop shell build
 
 on:
   push:
-    branches: [main]
+    branches: [main, "packaging/self-contained-win-x64"]
     paths:
       - "desktop/**"
       - ".github/workflows/windows-desktop-build.yml"
@@ -47,10 +47,33 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Restore
-        run: dotnet restore desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj
+        run: dotnet restore desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj --runtime win-x64
 
       - name: Publish Windows x64 application
-        run: dotnet publish desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj --configuration Release --no-restore --output artifacts/windows-x64
+        run: dotnet publish desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output artifacts/windows-x64
+
+      - name: Validate self-contained output and package installer guidance
+        shell: pwsh
+        run: |
+          $publish = "artifacts/windows-x64"
+          $required = @(
+            "MIKA-AI-VPN.exe",
+            "MIKA-AI-VPN.dll",
+            "coreclr.dll",
+            "hostpolicy.dll",
+            "PresentationFramework.dll",
+            "MikaNativeBridge.dll",
+            "hev-engine/fcae_ffi.dll",
+            "hev-engine/libhev-socks5-tunnel.dll",
+            "hev-engine/msys-2.0.dll"
+          )
+          foreach ($file in $required) {
+            if (!(Test-Path (Join-Path $publish $file))) { throw "Publish output is missing $file" }
+          }
+          $runtimeConfig = Get-Content (Join-Path $publish "MIKA-AI-VPN.runtimeconfig.json") -Raw
+          if ($runtimeConfig -match '"frameworks"') { throw "Publish is still framework-dependent; expected self-contained runtime config." }
+          Copy-Item "desktop/installer/INSTALL.ps1" (Join-Path $publish "INSTALL.ps1") -Force
+          Copy-Item "desktop/installer/README-FA.txt" (Join-Path $publish "README-FA.txt") -Force
 
       - name: Upload Windows x64 application
         uses: actions/upload-artifact@v4
