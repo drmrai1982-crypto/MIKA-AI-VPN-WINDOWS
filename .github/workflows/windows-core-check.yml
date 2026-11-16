@@ -1,0 +1,59 @@
+name: Windows core compile check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/windows-core-check.yml"
+      - "UPSTREAM.md"
+      - "docs/**"
+      - "README.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-check:
+    name: Windows x64 Rust compile check
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Windows project
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned upstream VPN source
+        uses: actions/checkout@v4
+        with:
+          repository: drmrai1982-crypto/MIKA-AI-VPN
+          ref: 73de903180e5d54b004b4338ad11355b0faf8609
+          path: upstream-source
+          persist-credentials: false
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Show toolchain
+        shell: pwsh
+        run: |
+          rustc --version
+          cargo --version
+          rustup target list --installed
+
+      - name: Compile Windows runtime
+        working-directory: upstream-source/core/fcae-ffi
+        shell: pwsh
+        run: cargo check --locked -p fcae-runtime --target x86_64-pc-windows-msvc
+
+      - name: Compile FFI shell without VPN backends
+        working-directory: upstream-source/core/fcae-ffi
+        shell: pwsh
+        run: cargo check --locked -p fcae-ffi --no-default-features --target x86_64-pc-windows-msvc
+
+      - name: Explain scope
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "This workflow is a Windows compile-check only."
+          Write-Host "It does not build a complete VPN app, enable a tunnel backend, or produce an installer."
