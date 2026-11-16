@@ -19,7 +19,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh run download 43918971282 --repo drmrai1982-crypto/MIKA-AI-VPN-WINDOWS --name mika-native-bridge-windows-x64 --dir "$env:RUNNER_TEMP\mika-bridge"
+          gh run download 43919889136 --repo drmrai1982-crypto/MIKA-AI-VPN-WINDOWS --name mika-native-bridge-windows-x64 --dir "$env:RUNNER_TEMP\mika-bridge"
 
       - name: Download HEV and FCAE runtime artifact
         shell: pwsh
