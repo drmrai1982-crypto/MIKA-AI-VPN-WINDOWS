@@ -52,24 +52,30 @@ jobs:
       - name: Publish Windows x64 application
         run: dotnet publish desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj --configuration Release --no-restore --output artifacts/windows-x64
 
-      - name: Bundle NASA Black Marble Earth texture for offline use
+      - name: Prepare brighter Earth texture with country and island borders
         shell: pwsh
         run: |
           $assets = "artifacts/windows-x64/assets"
           New-Item -ItemType Directory -Force -Path $assets | Out-Null
+          $source = Join-Path $env:RUNNER_TEMP "nasa-black-marble-source.jpg"
           $texture = Join-Path $assets "earth-night.jpg"
-          Invoke-WebRequest -Uri "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144898/BlackMarble_2016_3km.jpg" -OutFile $texture
+          Invoke-WebRequest -Uri "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144898/BlackMarble_2016_3km.jpg" -OutFile $source
+          if (!(Test-Path $source) -or (Get-Item $source).Length -lt 500000) {
+            throw "NASA Black Marble source texture is missing or unexpectedly small."
+          }
+          python -m pip install --quiet pillow
+          python scripts/prepare-earth-texture.py --input $source --output $texture
           if (!(Test-Path $texture) -or (Get-Item $texture).Length -lt 500000) {
-            throw "NASA Black Marble texture download is missing or unexpectedly small."
+            throw "Enhanced Earth texture is missing or unexpectedly small."
           }
           @"
           Earth at Night / Black Marble (2016)
-          Source: NASA Earth Observatory.
-          Imagery by Joshua Stevens, using Suomi NPP VIIRS data from Miguel Roman, NASA GSFC.
-          Source page: https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/
-          The image is bundled locally for offline display after installation.
+          Source imagery: NASA Earth Observatory; VIIRS data from Suomi NPP.
+          Cartographic borders and island outlines: Natural Earth 1:50m cultural dataset (public domain).
+          NASA source page: https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/
+          Natural Earth source: https://github.com/nvkelso/natural-earth-vector
+          The enhanced image is bundled locally for offline display after installation.
           "@ | Set-Content -Path (Join-Path $assets "SOURCE.txt") -Encoding UTF8
-
       - name: Upload Windows x64 application
         uses: actions/upload-artifact@v4
         with:
