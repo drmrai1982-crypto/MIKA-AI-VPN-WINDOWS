@@ -144,6 +144,10 @@ jobs:
           $env:FCAE_HEV_DLL = Join-Path $env:GITHUB_WORKSPACE 'hev-engine/libhev-socks5-tunnel.dll'
           if (-not (Test-Path $env:FCAE_HEV_DLL)) { throw 'Built HEV DLL is missing.' }
           rustc --version
+          # Keep BoringSSL/CMake intermediate paths short: MSVC FileTracker can fail
+          # when nested Cargo target paths exceed Windows path limits.
+          $env:CARGO_TARGET_DIR = Join-Path ($env:RUNNER_TEMP.Substring(0,2)) 't'
+          Write-Host "Using short Cargo target directory: $env:CARGO_TARGET_DIR"
           # Emit a native Windows DLL for the desktop host as well as the static library.
           $manifest = Join-Path $PWD 'ffi/Cargo.toml'
           $manifestText = Get-Content $manifest -Raw
@@ -151,7 +155,7 @@ jobs:
           $manifestText = $manifestText.Replace('crate-type = ["staticlib"]', 'crate-type = ["staticlib", "cdylib"]')
           Set-Content -Path $manifest -Value $manifestText -Encoding utf8
           cargo build -p fcae-ffi --release --no-default-features --features "aether hev tun fcae-bridge-tun2socks/stub" --target x86_64-pc-windows-msvc
-          $release = Join-Path $PWD 'target/x86_64-pc-windows-msvc/release'
+          $release = Join-Path $env:CARGO_TARGET_DIR 'x86_64-pc-windows-msvc/release'
           $lib = Join-Path $release 'fcae_ffi.lib'
           $dll = Join-Path $release 'fcae_ffi.dll'
           if (-not (Test-Path $lib)) { throw 'HEV-enabled Windows FFI static library was not produced.' }
