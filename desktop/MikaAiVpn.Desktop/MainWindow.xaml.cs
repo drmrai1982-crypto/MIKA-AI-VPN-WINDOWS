@@ -45,16 +45,16 @@ public partial class MainWindow : Window
                 mesh.TriangleIndices.Add(a + 1); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(b + 1);
             }
 
-        var image = LoadNightTexture();
+        var image = LoadEarthTexture();
         var material = new MaterialGroup();
         material.Children.Add(new DiffuseMaterial(new ImageBrush(image) { Stretch = Stretch.Fill }));
-        material.Children.Add(new EmissiveMaterial(new SolidColorBrush(Color.FromArgb(72, 62, 106, 164))));
+        material.Children.Add(new EmissiveMaterial(new SolidColorBrush(Color.FromArgb(18, 38, 52, 68))));
         var sphere = new GeometryModel3D(mesh, material) { BackMaterial = material };
         var spin = new AxisAngleRotation3D(new Vector3D(0, 1, 0), 0);
         sphere.Transform = new RotateTransform3D(spin);
 
         var scene = new Model3DGroup();
-        scene.Children.Add(new AmbientLight(Color.FromRgb(138, 145, 165)));
+        scene.Children.Add(new AmbientLight(Color.FromRgb(190, 195, 205)));
         scene.Children.Add(new DirectionalLight(Color.FromRgb(255, 250, 238), new Vector3D(-0.4, -0.2, -1)));
         scene.Children.Add(new DirectionalLight(Color.FromRgb(100, 168, 235), new Vector3D(0.7, 0.1, 0.6)));
         scene.Children.Add(sphere);
@@ -63,11 +63,11 @@ public partial class MainWindow : Window
         spin.BeginAnimation(AxisAngleRotation3D.AngleProperty, new DoubleAnimation(0, 360, TimeSpan.FromSeconds(72)) { RepeatBehavior = RepeatBehavior.Forever });
     }
 
-    private static ImageSource LoadNightTexture()
+    private static ImageSource LoadEarthTexture()
     {
-        // NASA Black Marble equirectangular night-lights map is downloaded by CI
+        // NASA Blue Marble daytime equirectangular satellite map is downloaded by CI
         // and bundled with the app, so the globe works offline after installation.
-        string texturePath = System.IO.Path.Combine(AppContext.BaseDirectory, "assets", "earth-night.jpg");
+        string texturePath = System.IO.Path.Combine(AppContext.BaseDirectory, "assets", "earth-day.jpg");
         if (!File.Exists(texturePath))
             throw new FileNotFoundException("The bundled NASA Earth night texture is missing.", texturePath);
 
