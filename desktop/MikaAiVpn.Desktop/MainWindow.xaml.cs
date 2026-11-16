@@ -5,6 +5,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Media3D;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
+using System.Windows.Shapes;
 
 namespace MikaAiVpn.Desktop;
 
