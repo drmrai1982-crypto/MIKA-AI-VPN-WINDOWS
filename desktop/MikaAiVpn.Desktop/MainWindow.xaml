@@ -68,42 +68,46 @@
        <Ellipse.Effect><BlurEffect Radius="12"/></Ellipse.Effect>
       </Ellipse>
       <Viewport3D x:Name="GlobeViewport" Width="500" Height="500" HorizontalAlignment="Center" VerticalAlignment="Center" ClipToBounds="False" IsHitTestVisible="False"/>
-      <Canvas x:Name="RadarCanvas" Width="210" Height="210" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" IsHitTestVisible="False">
-       <Ellipse Width="210" Height="210" Fill="#C9061424" Stroke="#8A9C8060" StrokeThickness="1.2"/>
-       <Ellipse Canvas.Left="8" Canvas.Top="8" Width="194" Height="194" Stroke="#394B453A" StrokeThickness="1"/>
-       <Ellipse Canvas.Left="30" Canvas.Top="30" Width="150" Height="150" Stroke="#554B453A" StrokeThickness="1"/>
-       <Ellipse Canvas.Left="53" Canvas.Top="53" Width="104" Height="104" Stroke="#554B453A" StrokeThickness="1"/>
-       <Ellipse Canvas.Left="76" Canvas.Top="76" Width="58" Height="58" Stroke="#444B453A" StrokeThickness="1"/>
-       <Line X1="105" Y1="5" X2="105" Y2="205" Stroke="#334B453A" StrokeThickness="1"/>
-       <Line X1="5" Y1="105" X2="205" Y2="105" Stroke="#334C9AB8" StrokeThickness="1"/>
-       <Line X1="34" Y1="34" X2="176" Y2="176" Stroke="#224B453A" StrokeThickness="1"/>
-       <Line X1="176" Y1="34" X2="34" Y2="176" Stroke="#223B819F" StrokeThickness="1"/>
-       <TextBlock Canvas.Left="101" Canvas.Top="10" Text="N" Foreground="#B7A98D" FontSize="8" FontWeight="Bold"/>
-       <TextBlock Canvas.Left="193" Canvas.Top="101" Text="E" Foreground="#A8CBE0" FontSize="8" FontWeight="Bold"/>
-       <TextBlock Canvas.Left="102" Canvas.Top="190" Text="S" Foreground="#A8CBE0" FontSize="8" FontWeight="Bold"/>
-       <TextBlock Canvas.Left="10" Canvas.Top="101" Text="W" Foreground="#A8CBE0" FontSize="8" FontWeight="Bold"/>
+      <Canvas x:Name="RadarCanvas" Width="250" Height="250" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" IsHitTestVisible="False">
+       <Ellipse Width="250" Height="250" Fill="#E906101B" Stroke="#887F9AAB" StrokeThickness="1.2"/>
+       <Ellipse Canvas.Left="9" Canvas.Top="9" Width="232" Height="232" Stroke="#405E7182" StrokeThickness="1"/>
+       <Ellipse Canvas.Left="34" Canvas.Top="34" Width="182" Height="182" Stroke="#505E7182" StrokeThickness="1"/>
+       <Ellipse Canvas.Left="59" Canvas.Top="59" Width="132" Height="132" Stroke="#505E7182" StrokeThickness="1"/>
+       <Ellipse Canvas.Left="84" Canvas.Top="84" Width="82" Height="82" Stroke="#405E7182" StrokeThickness="1"/>
+       <Ellipse Canvas.Left="109" Canvas.Top="109" Width="32" Height="32" Stroke="#506F8293" StrokeThickness="1"/>
+       <Line X1="125" Y1="5" X2="125" Y2="245" Stroke="#304C6070" StrokeThickness="1"/>
+       <Line X1="5" Y1="125" X2="245" Y2="125" Stroke="#304C6070" StrokeThickness="1"/>
+       <Line X1="40" Y1="40" X2="210" Y2="210" Stroke="#253F5363" StrokeThickness="1"/>
+       <Line X1="210" Y1="40" X2="40" Y2="210" Stroke="#253F5363" StrokeThickness="1"/>
+       <TextBlock Canvas.Left="121" Canvas.Top="13" Text="N" Foreground="#D4C7A7" FontSize="9" FontWeight="Bold"/>
+       <TextBlock Canvas.Left="230" Canvas.Top="120" Text="E" Foreground="#9BAEBB" FontSize="9" FontWeight="Bold"/>
+       <TextBlock Canvas.Left="122" Canvas.Top="229" Text="S" Foreground="#9BAEBB" FontSize="9" FontWeight="Bold"/>
+       <TextBlock Canvas.Left="13" Canvas.Top="120" Text="W" Foreground="#9BAEBB" FontSize="9" FontWeight="Bold"/>
       </Canvas>
-      <Canvas x:Name="RadarSweepCanvas" Width="210" Height="210" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False">
-       <Path Data="M 105,105 L 105,5 A 100,100 0 0 1 176,34 Z" Opacity="0.92">
+      <Canvas x:Name="RadarSweepCanvas" Width="250" Height="250" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False">
+       <Path Data="M 125,125 L 125,7 A 118,118 0 0 1 208.4,41.6 Z" Opacity="0.95">
         <Path.Fill>
-         <RadialGradientBrush Center="0.5,0.5" RadiusX="0.98" RadiusY="0.98">
-          <GradientStop Color="#00FF1744" Offset="0"/>
-          <GradientStop Color="#20FF1744" Offset="0.38"/>
-          <GradientStop Color="#70FF1744" Offset="0.76"/>
-          <GradientStop Color="#00FF1744" Offset="1"/>
+         <RadialGradientBrush Center="0.5,0.5" RadiusX="1" RadiusY="1">
+          <GradientStop Color="#00FF365D" Offset="0"/>
+          <GradientStop Color="#12FF365D" Offset="0.30"/>
+          <GradientStop Color="#48FF365D" Offset="0.72"/>
+          <GradientStop Color="#00FF365D" Offset="1"/>
          </RadialGradientBrush>
         </Path.Fill>
-        <Path.Effect><BlurEffect Radius="15"/></Path.Effect>
+        <Path.Effect><BlurEffect Radius="20"/></Path.Effect>
        </Path>
-       <Line X1="105" Y1="105" X2="105" Y2="8" Stroke="#66FF1744" StrokeThickness="19" StrokeStartLineCap="Round">
-        <Line.Effect><BlurEffect Radius="13"/></Line.Effect>
+       <Line X1="125" Y1="125" X2="125" Y2="9" Stroke="#55FF365D" StrokeThickness="22" StrokeStartLineCap="Round">
+        <Line.Effect><BlurEffect Radius="18"/></Line.Effect>
        </Line>
-       <Line X1="105" Y1="105" X2="105" Y2="8" Stroke="#DDFF526B" StrokeThickness="5" StrokeStartLineCap="Round">
-        <Line.Effect><DropShadowEffect Color="#FF1744" BlurRadius="28" ShadowDepth="0" Opacity="1"/></Line.Effect>
+       <Line X1="125" Y1="125" X2="125" Y2="9" Stroke="#CCFF526F" StrokeThickness="4" StrokeStartLineCap="Round">
+        <Line.Effect><DropShadowEffect Color="#FF365D" BlurRadius="30" ShadowDepth="0" Opacity="1"/></Line.Effect>
        </Line>
-       <Line X1="105" Y1="105" X2="105" Y2="8" Stroke="#FFFFE8EC" StrokeThickness="1.5" StrokeStartLineCap="Round"/>
+       <Line X1="125" Y1="125" X2="125" Y2="9" Stroke="#FFFFE9ED" StrokeThickness="1.2" StrokeStartLineCap="Round"/>
+       <Ellipse Canvas.Left="119" Canvas.Top="119" Width="12" Height="12" Fill="#FFF4F7FA" Stroke="#FFFF526F" StrokeThickness="2">
+        <Ellipse.Effect><DropShadowEffect Color="#FF365D" BlurRadius="20" ShadowDepth="0" Opacity="1"/></Ellipse.Effect>
+       </Ellipse>
       </Canvas>
-      <Canvas x:Name="RadarNodesCanvas" Width="210" Height="210" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" IsHitTestVisible="False"/>
+      <Canvas x:Name="RadarNodesCanvas" Width="250" Height="250" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3" IsHitTestVisible="False"/>
 
      </Grid>
      <StackPanel Grid.Row="2" HorizontalAlignment="Center" Margin="0,0,0,4">
