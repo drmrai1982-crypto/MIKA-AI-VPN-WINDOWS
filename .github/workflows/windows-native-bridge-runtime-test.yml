@@ -28,7 +28,7 @@ jobs:
         run: |
           gh run download 43916105641 --repo drmrai1982-crypto/MIKA-AI-VPN-WINDOWS --name mika-hev-windows-x64 --dir "$env:RUNNER_TEMP\mika-hev"
 
-      - name: Load bridge and probe FCAE ABI
+      - name: Load bridge, initialize FCAE, and inspect engines
         shell: pwsh
         run: |
           $bridge = Join-Path $env:RUNNER_TEMP "mika-bridge\MikaNativeBridge.dll"
@@ -43,26 +43,40 @@ jobs:
 
           bridge_path = pathlib.Path(sys.argv[1])
           ffi_dir = pathlib.Path(sys.argv[2])
-
           bridge = ctypes.WinDLL(str(bridge_path))
+
           expected = bridge.mika_native_expected_abi
           expected.argtypes = []
           expected.restype = ctypes.c_uint32
 
-          probe = bridge.mika_native_probe
-          probe.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_wchar), ctypes.c_uint32]
-          probe.restype = ctypes.c_int32
+          def bind(name):
+              fn = getattr(bridge, name)
+              fn.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_wchar), ctypes.c_uint32]
+              fn.restype = ctypes.c_int32
+              return fn
 
           expected_abi = expected()
           print(f"Header ABI expected by bridge: {expected_abi}")
           if expected_abi != 19:
               raise SystemExit(f"Unexpected header ABI: {expected_abi}")
 
-          message = ctypes.create_unicode_buffer(512)
-          result = probe(str(ffi_dir), message, len(message))
-          print(f"Probe result: {result}")
+          message = ctypes.create_unicode_buffer(2048)
+          probe_result = bind("mika_native_probe")(str(ffi_dir), message, len(message))
+          print(f"Probe result: {probe_result}")
           print(f"Probe message: {message.value}")
-          if result != 0:
-              raise SystemExit(f"Native bridge probe failed with code {result}")
-          print("PASS: bridge loaded FCAE DLL, found required exports, and verified ABI.")
+          if probe_result != 0:
+              raise SystemExit(f"Native bridge probe failed with code {probe_result}")
+
+          message.value = ""
+          inspect_result = bind("mika_native_initialize_inspect")(str(ffi_dir), message, len(message))
+          print(f"Initialize/inspect result: {inspect_result}")
+          print("Runtime inspection report:")
+          print(message.value)
+          if inspect_result != 0:
+              raise SystemExit(f"FCAE initialize/inspect failed with code {inspect_result}")
+          if "FCAE initialized successfully" not in message.value:
+              raise SystemExit("Initialization confirmation missing.")
+          if "FCAE shutdown status: 0" not in message.value:
+              raise SystemExit("Clean FCAE shutdown was not confirmed.")
+          print("PASS: FCAE initialized, enumerated backend/TUN metadata, and shut down. No tunnel was started.")
           '@ | python - $bridge $ffiDir
