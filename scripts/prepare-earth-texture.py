@@ -124,7 +124,7 @@ def main() -> int:
         base = source.convert("RGB")
         if base.size != (13500, 6750):
             print(f"Note: NASA texture size is {base.size}; expected 13500x6750.", file=sys.stderr)
-        # Brighten terrain and coast detail while preserving the black-ocean night look.
+        # Preserve NASA's natural daytime colours while gently improving local contrast and detail.
         base = ImageEnhance.Brightness(base).enhance(1.55)
         base = ImageEnhance.Color(base).enhance(1.16)
         base = ImageEnhance.Contrast(base).enhance(1.07)
