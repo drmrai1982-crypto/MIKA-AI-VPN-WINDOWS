@@ -144,10 +144,27 @@ jobs:
           $env:FCAE_HEV_DLL = Join-Path $env:GITHUB_WORKSPACE 'hev-engine/libhev-socks5-tunnel.dll'
           if (-not (Test-Path $env:FCAE_HEV_DLL)) { throw 'Built HEV DLL is missing.' }
           rustc --version
+          # Emit a native Windows DLL for the desktop host as well as the static library.
+          $manifest = Join-Path $PWD 'ffi/Cargo.toml'
+          $manifestText = Get-Content $manifest -Raw
+          if (-not $manifestText.Contains('crate-type = ["staticlib"]')) { throw 'Unexpected upstream FFI crate-type; refusing manifest rewrite.' }
+          $manifestText = $manifestText.Replace('crate-type = ["staticlib"]', 'crate-type = ["staticlib", "cdylib"]')
+          Set-Content -Path $manifest -Value $manifestText -Encoding utf8
           cargo build -p fcae-ffi --release --no-default-features --features "hev tun fcae-bridge-tun2socks/stub" --target x86_64-pc-windows-msvc
-          $lib = Join-Path $PWD 'target/x86_64-pc-windows-msvc/release/fcae_ffi.lib'
-          if (-not (Test-Path $lib)) { throw 'Real HEV FFI static library was not produced.' }
-          Write-Host "Real HEV-enabled Windows FFI built: $lib"
+          $release = Join-Path $PWD 'target/x86_64-pc-windows-msvc/release'
+          $lib = Join-Path $release 'fcae_ffi.lib'
+          $dll = Join-Path $release 'fcae_ffi.dll'
+          if (-not (Test-Path $lib)) { throw 'HEV-enabled Windows FFI static library was not produced.' }
+          if (-not (Test-Path $dll)) { throw 'Windows desktop C ABI DLL was not produced.' }
+          Copy-Item $dll (Join-Path $env:GITHUB_WORKSPACE 'hev-engine/fcae_ffi.dll') -Force
+          Write-Host "HEV-enabled Windows FFI static library built: $lib"
+          Write-Host "Windows desktop C ABI DLL staged: $dll"
+          $exports = dumpbin /exports (Join-Path $env:GITHUB_WORKSPACE 'hev-engine/fcae_ffi.dll')
+          if ($LASTEXITCODE -ne 0) { throw 'Could not inspect Windows FFI DLL exports.' }
+          $exports | Select-String 'fcae_init|fcae_config_default|fcae_start|fcae_stop|fcae_last_error'
+          foreach ($symbol in @('fcae_init','fcae_config_default','fcae_start','fcae_stop','fcae_last_error')) {
+            if (-not ($exports -match $symbol)) { throw "Required C ABI export missing: $symbol" }
+          }
 
       - name: Upload HEV engine and runtime dependencies
         uses: actions/upload-artifact@v4
