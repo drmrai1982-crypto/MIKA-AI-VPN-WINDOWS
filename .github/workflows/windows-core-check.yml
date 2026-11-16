@@ -49,7 +49,7 @@ jobs:
       - name: Compile FFI shell without VPN backends
         working-directory: upstream-source/core/fcae-ffi
         shell: pwsh
-        run: cargo check --locked -p fcae-ffi --no-default-features --target x86_64-pc-windows-msvc
+        run: cargo check -p fcae-ffi --no-default-features --target x86_64-pc-windows-msvc
 
       - name: Explain scope
         if: always()
