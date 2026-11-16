@@ -58,27 +58,27 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Prepare brighter Earth texture with country and island borders
+      - name: Prepare high-resolution NASA Blue Marble daytime texture with country borders
         shell: pwsh
         run: |
           $assets = "artifacts/windows-x64/assets"
           New-Item -ItemType Directory -Force -Path $assets | Out-Null
-          $source = Join-Path $env:RUNNER_TEMP "nasa-black-marble-source.jpg"
-          $texture = Join-Path $assets "earth-night.jpg"
-          Invoke-WebRequest -Uri "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144898/BlackMarble_2016_3km.jpg" -OutFile $source
+          $source = Join-Path $env:RUNNER_TEMP "nasa-blue-marble-source.jpg"
+          $texture = Join-Path $assets "earth-day.jpg"
+          Invoke-WebRequest -Uri "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/january/world.200401.3x21600x10800.jpg" -OutFile $source
           if (!(Test-Path $source) -or (Get-Item $source).Length -lt 500000) {
-            throw "NASA Black Marble source texture is missing or unexpectedly small."
+            throw "NASA Blue Marble daytime source texture is missing or unexpectedly small."
           }
           python -m pip install --quiet pillow
           python scripts/prepare-earth-texture.py --input $source --output $texture
           if (!(Test-Path $texture) -or (Get-Item $texture).Length -lt 500000) {
-            throw "Enhanced Earth texture is missing or unexpectedly small."
+            throw "Enhanced daytime Earth texture is missing or unexpectedly small."
           }
           @"
-          Earth at Night / Black Marble (2016)
-          Source imagery: NASA Earth Observatory; VIIRS data from Suomi NPP.
+          NASA Blue Marble: Next Generation (January 2004)
+          Source imagery: NASA Earth Observatory / Blue Marble Next Generation.
           Cartographic borders and island outlines: Natural Earth 1:50m cultural dataset (public domain).
-          NASA source page: https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/
+          NASA source page: https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/
           Natural Earth source: https://github.com/nvkelso/natural-earth-vector
           The enhanced image is bundled locally for offline display after installation.
           "@ | Set-Content -Path (Join-Path $assets "SOURCE.txt") -Encoding UTF8
