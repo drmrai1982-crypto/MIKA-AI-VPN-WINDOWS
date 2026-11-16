@@ -52,23 +52,37 @@
        <Ellipse.Effect><BlurEffect Radius="24"/></Ellipse.Effect>
       </Ellipse>
       <Viewport3D x:Name="GlobeViewport" Width="500" Height="500" HorizontalAlignment="Center" VerticalAlignment="Center" ClipToBounds="False" IsHitTestVisible="False"/>
-      <Canvas x:Name="RadarCanvas" Width="174" Height="174" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,4" RenderTransformOrigin="0.5,0.5">
-       <Ellipse Width="174" Height="174" Stroke="#554FE3C1" StrokeThickness="1.2"/>
-       <Ellipse Canvas.Left="19" Canvas.Top="19" Width="136" Height="136" Stroke="#664FE3C1" StrokeThickness="1"/>
-       <Ellipse Canvas.Left="39" Canvas.Top="39" Width="96" Height="96" Stroke="#554FE3C1" StrokeThickness="1"/>
-       <Ellipse Canvas.Left="59" Canvas.Top="59" Width="56" Height="56" Stroke="#554FE3C1" StrokeThickness="1"/>
+      <Canvas x:Name="RadarCanvas" Width="174" Height="174" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,4" IsHitTestVisible="False">
+       <Ellipse Width="174" Height="174" Stroke="#6650DCEB" StrokeThickness="1.2"/>
+       <Ellipse Canvas.Left="19" Canvas.Top="19" Width="136" Height="136" Stroke="#6650DCEB" StrokeThickness="1"/>
+       <Ellipse Canvas.Left="39" Canvas.Top="39" Width="96" Height="96" Stroke="#5550DCEB" StrokeThickness="1"/>
+       <Ellipse Canvas.Left="59" Canvas.Top="59" Width="56" Height="56" Stroke="#5550DCEB" StrokeThickness="1"/>
        <Line X1="87" Y1="0" X2="87" Y2="174" Stroke="#334FE3C1" StrokeThickness="1"/>
        <Line X1="0" Y1="87" X2="174" Y2="87" Stroke="#334FE3C1" StrokeThickness="1"/>
-       <Path Data="M 87,87 L 87,4 A 83,83 0 0 1 145,28 Z">
-        <Path.Fill><RadialGradientBrush Center="0.5,0.5" RadiusX="0.9" RadiusY="0.9"><GradientStop Color="#004FE3C1" Offset="0"/><GradientStop Color="#554FE3C1" Offset="0.72"/><GradientStop Color="#004FE3C1" Offset="1"/></RadialGradientBrush></Path.Fill>
-       </Path>
-       <Line X1="87" Y1="87" X2="87" Y2="4" Stroke="#A6A4FFF0" StrokeThickness="2">
-        <Line.Effect><DropShadowEffect Color="#4FE3C1" BlurRadius="18" ShadowDepth="0" Opacity="1"/></Line.Effect>
-       </Line>
-       <Ellipse Canvas.Left="82" Canvas.Top="82" Width="10" Height="10" Fill="#D9FFF8">
-        <Ellipse.Effect><DropShadowEffect Color="#4FE3C1" BlurRadius="16" ShadowDepth="0" Opacity="1"/></Ellipse.Effect>
-       </Ellipse>
       </Canvas>
+      <Canvas x:Name="RadarSweepCanvas" Width="174" Height="174" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,4" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False">
+       <Path Data="M 87,87 L 87,3 A 84,84 0 0 1 160,45 Z">
+        <Path.Fill>
+         <RadialGradientBrush Center="0.5,0.5" RadiusX="0.95" RadiusY="0.95">
+          <GradientStop Color="#0050E6FF" Offset="0"/>
+          <GradientStop Color="#4450E6FF" Offset="0.60"/>
+          <GradientStop Color="#8850E6FF" Offset="0.88"/>
+          <GradientStop Color="#0050E6FF" Offset="1"/>
+         </RadialGradientBrush>
+        </Path.Fill>
+        <Path.Effect><BlurEffect Radius="10"/></Path.Effect>
+       </Path>
+       <Line X1="87" Y1="87" X2="87" Y2="4" Stroke="#5550E6FF" StrokeThickness="9" StrokeStartLineCap="Round">
+        <Line.Effect><DropShadowEffect Color="#50E6FF" BlurRadius="28" ShadowDepth="0" Opacity="1"/></Line.Effect>
+       </Line>
+       <Line X1="87" Y1="87" X2="87" Y2="4" Stroke="#E8FFFFFF" StrokeThickness="1.8" StrokeStartLineCap="Round">
+        <Line.Effect><DropShadowEffect Color="#50E6FF" BlurRadius="18" ShadowDepth="0" Opacity="1"/></Line.Effect>
+       </Line>
+      </Canvas>
+      <Canvas x:Name="RadarNodesCanvas" Width="174" Height="174" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,4" IsHitTestVisible="False"/>
+      <Ellipse Width="10" Height="10" Canvas.Left="82" Canvas.Top="82" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,86" Fill="#E8FFFFFF" IsHitTestVisible="False">
+       <Ellipse.Effect><DropShadowEffect Color="#50E6FF" BlurRadius="18" ShadowDepth="0" Opacity="1"/></Ellipse.Effect>
+      </Ellipse>
      </Grid>
      <StackPanel Grid.Row="2" HorizontalAlignment="Center" Margin="0,0,0,4">
       <TextBlock x:Name="ConnectionState" Text="CORE READY · TUNNEL NOT STARTED" Foreground="#FFC46B" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center"/>
