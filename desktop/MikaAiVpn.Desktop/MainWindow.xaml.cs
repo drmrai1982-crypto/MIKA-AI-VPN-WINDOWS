@@ -3,12 +3,16 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Media3D;
+using System.Windows.Threading;
 
 namespace MikaAiVpn.Desktop;
 
 public partial class MainWindow : Window
 {
     private bool _isPersian;
+    private readonly Random _radarRandom = new();
+    private DispatcherTimer? _radarTimer;
+    private bool _radarConnected;
 
     public MainWindow()
     {
@@ -107,9 +111,94 @@ public partial class MainWindow : Window
 
     private void StartRadar()
     {
+        // Only the luminous sweep rotates; the range rings and axes stay fixed.
         var spin = new RotateTransform(0, 87, 87);
-        RadarCanvas.RenderTransform = spin;
-        spin.BeginAnimation(RotateTransform.AngleProperty, new DoubleAnimation(0, 360, TimeSpan.FromSeconds(4.8)) { RepeatBehavior = RepeatBehavior.Forever });
+        RadarSweepCanvas.RenderTransform = spin;
+        spin.BeginAnimation(RotateTransform.AngleProperty,
+            new DoubleAnimation(0, 360, TimeSpan.FromSeconds(4.8)) { RepeatBehavior = RepeatBehavior.Forever });
+
+        RefreshRadarNetwork();
+        _radarTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _radarTimer.Tick += (_, _) => RefreshRadarNetwork();
+        _radarTimer.Start();
+    }
+
+    private void RefreshRadarNetwork()
+    {
+        const int pointCount = 7;
+        const double center = 87;
+        var points = new Point[pointCount];
+
+        // Seven fresh signal nodes are laid out once per second inside the radar ring.
+        for (int i = 0; i < pointCount; i++)
+        {
+            double angle = -Math.PI / 2 + (2 * Math.PI * i / pointCount)
+                + (_radarRandom.NextDouble() - 0.5) * 0.16;
+            double radius = 52 + _radarRandom.NextDouble() * 15;
+            points[i] = new Point(
+                center + Math.Cos(angle) * radius,
+                center + Math.Sin(angle) * radius);
+        }
+
+        RadarNodesCanvas.Children.Clear();
+        Color signal = _radarConnected
+            ? Color.FromRgb(0, 255, 102)
+            : Color.FromRgb(255, 23, 68);
+        var coreBrush = new SolidColorBrush(signal);
+        var glowBrush = new SolidColorBrush(Color.FromArgb(100, signal.R, signal.G, signal.B));
+
+        // A 7-node ring with links to the next two nodes gives each node four links.
+        // Each undirected connection is drawn once: 14 links, degree 4 for every node.
+        for (int i = 0; i < pointCount; i++)
+        {
+            foreach (int offset in new[] { 1, 2 })
+            {
+                Point a = points[i];
+                Point b = points[(i + offset) % pointCount];
+
+                RadarNodesCanvas.Children.Add(new Line
+                {
+                    X1 = a.X, Y1 = a.Y, X2 = b.X, Y2 = b.Y,
+                    Stroke = glowBrush, StrokeThickness = 5.5, Opacity = 0.85,
+                    Effect = new BlurEffect { Radius = 7 }
+                });
+                RadarNodesCanvas.Children.Add(new Line
+                {
+                    X1 = a.X, Y1 = a.Y, X2 = b.X, Y2 = b.Y,
+                    Stroke = coreBrush, StrokeThickness = 1.15, Opacity = 0.82
+                });
+            }
+        }
+
+        foreach (Point point in points)
+        {
+            RadarNodesCanvas.Children.Add(new Ellipse
+            {
+                Width = 13, Height = 13,
+                Fill = glowBrush,
+                Stroke = glowBrush,
+                StrokeThickness = 1,
+                Effect = new BlurEffect { Radius = 8 },
+                RenderTransform = new TranslateTransform(point.X - center - 6.5, point.Y - center - 6.5)
+            });
+            RadarNodesCanvas.Children.Add(new Ellipse
+            {
+                Width = 5.5, Height = 5.5,
+                Fill = coreBrush,
+                Effect = new DropShadowEffect
+                {
+                    Color = signal, BlurRadius = 13, ShadowDepth = 0, Opacity = 1
+                },
+                RenderTransform = new TranslateTransform(point.X - center - 2.75, point.Y - center - 2.75)
+            });
+        }
+    }
+
+    // Call only after the real tunnel controller confirms an established VPN session.
+    private void UpdateRadarState(bool connected)
+    {
+        _radarConnected = connected;
+        RefreshRadarNetwork();
     }
 
     private void LanguageButton_Click(object sender, RoutedEventArgs e) { _isPersian = !_isPersian; SetLanguage(_isPersian); }
