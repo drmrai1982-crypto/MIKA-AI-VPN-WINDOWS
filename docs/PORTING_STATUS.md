@@ -50,3 +50,17 @@ The inspected upstream revision contains Windows-specific Rust runtime code:
 ## Current CI check
 
 The initial workflow compiles the Windows-specific runtime and the FFI shell with backend features disabled. This validates only the platform-facing Rust code and build graph. It deliberately does not claim that a VPN backend is enabled or that a tunnel can connect.
+
+## Additional source-availability finding
+
+The pinned upstream Git tree does **not** contain the standalone source directories expected by the current bridge build scripts:
+
+- `core/tun2socks` (required by the tun2socks Go bridge build script)
+- `core/zeptun` (required by the zeptun prebuilt-library build script)
+- `core/hev-socks5-tunnel` (required by the HEV bridge's static/DLL build script)
+
+These paths are not present as Git submodule entries in the inspected commit either. As a result, enabling those bridge features directly against this checkout would fail at the native-engine build stage. The Windows runtime compile and no-backend FFI compile checks do not exercise those missing native engine sources.
+
+There is, however, HEV source code under `app/src/main/cpp/hev`, including `hev-tunnel-windows.c`, `hev-wintun.c`, and the supporting `lwip`, `yaml`, and `hev-task-system` trees. Its checked-in build files are Android NDK-oriented. A Windows MSYS2 DLL build from this source tree is a possible route, but it must be engineered and validated rather than assumed to work.
+
+This finding is a release blocker until one real Windows TUN engine is built, linked/loaded, and tested. Do not treat the current successful compile-check as a VPN build.
