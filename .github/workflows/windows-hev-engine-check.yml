@@ -117,6 +117,38 @@ jobs:
           }
           Write-Host 'HEV DLL loaded successfully in a native Windows process.'
 
+      - name: Install Rust stable for Windows x64
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Download official Wintun runtime DLL
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = Join-Path $env:RUNNER_TEMP 'wintun.zip'
+          $extract = Join-Path $env:RUNNER_TEMP 'wintun-sdk'
+          Invoke-WebRequest -Uri 'https://www.wintun.net/builds/wintun-0.14.1.zip' -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $extract -Force
+          $dll = Get-ChildItem -Path $extract -Filter 'wintun.dll' -Recurse | Where-Object { $_.Directory.Name -eq 'amd64' } | Select-Object -First 1
+          if (-not $dll) { throw 'Official x64 Wintun DLL was not found in the SDK archive.' }
+          if ($dll.Length -lt 65536) { throw 'Wintun DLL is unexpectedly small.' }
+          "WINTUN_DLL=$($dll.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Verified Wintun x64 DLL: $($dll.FullName) ($($dll.Length) bytes)"
+
+      - name: Build upstream FFI with the real HEV Windows bridge
+        shell: pwsh
+        working-directory: upstream-source/core/fcae-ffi
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:FCAE_HEV_DLL = Join-Path $env:GITHUB_WORKSPACE 'hev-engine/libhev-socks5-tunnel.dll'
+          if (-not (Test-Path $env:FCAE_HEV_DLL)) { throw 'Built HEV DLL is missing.' }
+          rustc --version
+          cargo build -p fcae-ffi --release --no-default-features --features hev --target x86_64-pc-windows-msvc
+          $lib = Join-Path $PWD 'target/x86_64-pc-windows-msvc/release/fcae_ffi.lib'
+          if (-not (Test-Path $lib)) { throw 'Real HEV FFI static library was not produced.' }
+          Write-Host "Real HEV-enabled Windows FFI built: $lib"
+
       - name: Upload HEV engine and runtime dependencies
         uses: actions/upload-artifact@v4
         with:
