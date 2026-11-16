@@ -1,0 +1,31 @@
+name: Windows desktop shell build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "desktop/**"
+      - ".github/workflows/windows-desktop-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-desktop:
+    name: Build WPF desktop shell (x64)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Windows project
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj
+
+      - name: Build
+        run: dotnet build desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj --configuration Release --no-restore
