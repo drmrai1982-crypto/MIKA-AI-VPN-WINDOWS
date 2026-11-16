@@ -144,7 +144,7 @@ jobs:
           $env:FCAE_HEV_DLL = Join-Path $env:GITHUB_WORKSPACE 'hev-engine/libhev-socks5-tunnel.dll'
           if (-not (Test-Path $env:FCAE_HEV_DLL)) { throw 'Built HEV DLL is missing.' }
           rustc --version
-          cargo build -p fcae-ffi --release --no-default-features --features hev --target x86_64-pc-windows-msvc
+          cargo build -p fcae-ffi --release --no-default-features --features "hev tun fcae-bridge-tun2socks/stub" --target x86_64-pc-windows-msvc
           $lib = Join-Path $PWD 'target/x86_64-pc-windows-msvc/release/fcae_ffi.lib'
           if (-not (Test-Path $lib)) { throw 'Real HEV FFI static library was not produced.' }
           Write-Host "Real HEV-enabled Windows FFI built: $lib"
