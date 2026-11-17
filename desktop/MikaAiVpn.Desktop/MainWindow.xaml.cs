@@ -117,8 +117,8 @@ public partial class MainWindow : Window
         var points = new Point[pointCount];
 
         // Stable, slightly irregular orbital positions avoid the rigid star-shaped look.
-        double[] angleOffsets = { -90, -37, 18, 69, 126, 181, 231 };
-        double[] radii = { 69, 76, 68, 77, 70, 76, 67 };
+        double[] angleOffsets = { -90, -90 + 360.0 / 7, -90 + 720.0 / 7, -90 + 1080.0 / 7, -90 + 1440.0 / 7, -90 + 1800.0 / 7, -90 + 2160.0 / 7 };
+        double[] radii = { 72, 72, 72, 72, 72, 72, 72 };
         for (int i = 0; i < pointCount; i++)
         {
             double angle = angleOffsets[i] * Math.PI / 180.0;
@@ -140,13 +140,14 @@ public partial class MainWindow : Window
                 Point a = points[i];
                 Point b = points[(i + offset) % pointCount];
                 bool primary = offset == 1;
-                var lineColor = Color.FromArgb(primary ? (byte)118 : (byte)42,
+                var lineColor = Color.FromArgb(primary ? (byte)112 : (byte)17,
                                                 signal.R, signal.G, signal.B);
                 RadarNodesCanvas.Children.Add(new Line
                 {
                     X1 = a.X, Y1 = a.Y, X2 = b.X, Y2 = b.Y,
                     Stroke = new SolidColorBrush(lineColor),
-                    StrokeThickness = primary ? 1.35 : 0.75,
+                    StrokeThickness = primary ? 1.25 : 0.65,
+                    StrokeDashArray = primary ? null : new DoubleCollection { 2, 4 },
                     StrokeStartLineCap = PenLineCap.Round,
                     StrokeEndLineCap = PenLineCap.Round
                 });
@@ -155,7 +156,7 @@ public partial class MainWindow : Window
                     RadarNodesCanvas.Children.Add(new Line
                     {
                         X1 = a.X, Y1 = a.Y, X2 = b.X, Y2 = b.Y,
-                        Stroke = new SolidColorBrush(Color.FromArgb(24, signal.R, signal.G, signal.B)),
+                        Stroke = new SolidColorBrush(Color.FromArgb(12, signal.R, signal.G, signal.B)),
                         StrokeThickness = 5,
                         Effect = new BlurEffect { Radius = 5 }
                     });
@@ -167,20 +168,20 @@ public partial class MainWindow : Window
         {
             var halo = new Ellipse
             {
-                Width = 20, Height = 20,
+                Width = 17, Height = 17,
                 Fill = new RadialGradientBrush(new GradientStopCollection {
                     new GradientStop(Color.FromArgb(95, signal.R, signal.G, signal.B), 0.0),
                     new GradientStop(Color.FromArgb(35, signal.R, signal.G, signal.B), 0.55),
                     new GradientStop(Color.FromArgb(0, signal.R, signal.G, signal.B), 1.0)
                 })
             };
-            Canvas.SetLeft(halo, point.X - 10);
-            Canvas.SetTop(halo, point.Y - 10);
+            Canvas.SetLeft(halo, point.X - 8.5);
+            Canvas.SetTop(halo, point.Y - 8.5);
             RadarNodesCanvas.Children.Add(halo);
 
             var node = new Ellipse
             {
-                Width = 6.5, Height = 6.5,
+                Width = 5.5, Height = 5.5,
                 Fill = new SolidColorBrush(Color.FromRgb(235, 249, 255)),
                 Stroke = new SolidColorBrush(signal),
                 StrokeThickness = 1.35,
@@ -189,8 +190,8 @@ public partial class MainWindow : Window
                     Color = signal, BlurRadius = 11, ShadowDepth = 0, Opacity = 0.75
                 }
             };
-            Canvas.SetLeft(node, point.X - 3.25);
-            Canvas.SetTop(node, point.Y - 3.25);
+            Canvas.SetLeft(node, point.X - 2.75);
+            Canvas.SetTop(node, point.Y - 2.75);
             RadarNodesCanvas.Children.Add(node);
         }
     }
