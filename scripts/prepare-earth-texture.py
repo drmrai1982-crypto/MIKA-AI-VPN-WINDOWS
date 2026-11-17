@@ -56,14 +56,14 @@ def project_ring(ring, width: int, height: int):
     return points
 
 
-def split_dateline(points):
+def split_dateline(points, threshold):
     """Split rings at the antimeridian to avoid drawing a line across the whole map."""
     if len(points) < 2:
         return []
     segments = []
     current = [points[0]]
     for point in points[1:]:
-        if abs(point[0] - current[-1][0]) > width_for_dateline:
+        if abs(point[0] - current[-1][0]) > threshold:
             if len(current) > 1:
                 segments.append(current)
             current = [point]
@@ -95,7 +95,7 @@ def render_borders(image: Image.Image, geojson: dict) -> Image.Image:
         geometry = feature.get("geometry") or {}
         for ring in iter_rings(geometry):
             points = project_ring(ring, width, height)
-            for segment in split_dateline(points):
+            for segment in split_dateline(points, width // 2):
                 if len(segment) < 2:
                     continue
                 # Warm champagne-gold outer trace with a crisp pale-gold centre line.
