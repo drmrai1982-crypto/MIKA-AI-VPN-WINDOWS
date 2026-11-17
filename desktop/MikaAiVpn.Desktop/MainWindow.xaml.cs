@@ -105,7 +105,7 @@ public partial class MainWindow : Window
         RadarSweepCanvas.RenderTransform = spin;
         spin.BeginAnimation(RotateTransform.AngleProperty,
             new DoubleAnimation(0, 360, TimeSpan.FromSeconds(7.5))
-            { RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new LinearEase() });
+            { RepeatBehavior = RepeatBehavior.Forever });
 
         RefreshRadarNetwork();
     }
