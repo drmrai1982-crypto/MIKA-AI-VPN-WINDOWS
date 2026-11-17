@@ -83,76 +83,83 @@ public partial class MainWindow : Window
 
     private void StartRadar()
     {
-        // Professional polar ticks: fixed bearings around the range ring.
+        // Fine polar scale: major bearings every 30 degrees, minor ticks between them.
+        const double center = 110;
         for (int i = 0; i < 72; i++)
         {
             double angle = i * Math.PI / 36.0;
-            double outer = 102;
-            double inner = i % 6 == 0 ? 92 : 97;
-            var tick = new Line
+            double outer = 101;
+            double inner = i % 6 == 0 ? 91 : 96;
+            RadarCanvas.Children.Add(new Line
             {
-                X1 = 105 + Math.Sin(angle) * inner,
-                Y1 = 105 - Math.Cos(angle) * inner,
-                X2 = 105 + Math.Sin(angle) * outer,
-                Y2 = 105 - Math.Cos(angle) * outer,
-                Stroke = new SolidColorBrush(Color.FromArgb(i % 6 == 0 ? (byte)150 : (byte)65, 133, 191, 220)),
-                StrokeThickness = i % 6 == 0 ? 1.3 : 0.7
-            };
-            RadarCanvas.Children.Add(tick);
+                X1 = center + Math.Sin(angle) * inner,
+                Y1 = center - Math.Cos(angle) * inner,
+                X2 = center + Math.Sin(angle) * outer,
+                Y2 = center - Math.Cos(angle) * outer,
+                Stroke = new SolidColorBrush(Color.FromArgb(i % 6 == 0 ? (byte)125 : (byte)42, 142, 190, 211)),
+                StrokeThickness = i % 6 == 0 ? 1.0 : 0.55
+            });
         }
 
-        // The canvas already has RenderTransformOrigin=0.5,0.5 in XAML.
-        // Use a zero-origin RotateTransform here to avoid applying the pivot twice.
         var spin = new RotateTransform();
         RadarSweepCanvas.RenderTransform = spin;
         spin.BeginAnimation(RotateTransform.AngleProperty,
-            new DoubleAnimation(0, 360, TimeSpan.FromSeconds(5.6)) { RepeatBehavior = RepeatBehavior.Forever });
+            new DoubleAnimation(0, 360, TimeSpan.FromSeconds(7.5))
+            { RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new LinearEase() });
 
-        // Build the network once. Its seven nodes never jump or regenerate on a timer.
         RefreshRadarNetwork();
     }
 
     private void RefreshRadarNetwork()
     {
         const int pointCount = 7;
-        const double center = 125;
+        const double center = 110;
         var points = new Point[pointCount];
 
+        // Stable, slightly irregular orbital positions avoid the rigid star-shaped look.
+        double[] angleOffsets = { -90, -37, 18, 69, 126, 181, 231 };
+        double[] radii = { 69, 76, 68, 77, 70, 76, 67 };
         for (int i = 0; i < pointCount; i++)
         {
-            double angle = -Math.PI / 2 + (2 * Math.PI * i / pointCount);
-            double radius = 82 + 4 * Math.Sin(i * 1.73);
-            points[i] = new Point(
-                center + Math.Cos(angle) * radius,
-                center + Math.Sin(angle) * radius);
+            double angle = angleOffsets[i] * Math.PI / 180.0;
+            points[i] = new Point(center + Math.Cos(angle) * radii[i],
+                                  center + Math.Sin(angle) * radii[i]);
         }
 
         RadarNodesCanvas.Children.Clear();
         Color signal = _radarConnected
-            ? Color.FromRgb(0, 255, 102)
-            : Color.FromRgb(255, 23, 68);
-        var coreBrush = new SolidColorBrush(signal);
-        var glowBrush = new SolidColorBrush(Color.FromArgb(190, signal.R, signal.G, signal.B));
+            ? Color.FromRgb(50, 235, 153)
+            : Color.FromRgb(255, 72, 105);
 
-        // Seven nodes; each node connects to four distinct peers (14 undirected links).
+        // Four links per node: two clear local links and two deliberately subdued
+        // long-range links. Each undirected link is drawn once.
         for (int i = 0; i < pointCount; i++)
         {
-            foreach (int offset in new[] { 1, 2 })
+            for (int offset = 1; offset <= 2; offset++)
             {
                 Point a = points[i];
                 Point b = points[(i + offset) % pointCount];
-
+                bool primary = offset == 1;
+                var lineColor = Color.FromArgb(primary ? (byte)118 : (byte)42,
+                                                signal.R, signal.G, signal.B);
                 RadarNodesCanvas.Children.Add(new Line
                 {
                     X1 = a.X, Y1 = a.Y, X2 = b.X, Y2 = b.Y,
-                    Stroke = glowBrush, StrokeThickness = 10, Opacity = 1,
-                    Effect = new BlurEffect { Radius = 9 }
+                    Stroke = new SolidColorBrush(lineColor),
+                    StrokeThickness = primary ? 1.35 : 0.75,
+                    StrokeStartLineCap = PenLineCap.Round,
+                    StrokeEndLineCap = PenLineCap.Round
                 });
-                RadarNodesCanvas.Children.Add(new Line
+                if (primary)
                 {
-                    X1 = a.X, Y1 = a.Y, X2 = b.X, Y2 = b.Y,
-                    Stroke = coreBrush, StrokeThickness = 1.55, Opacity = 0.92
-                });
+                    RadarNodesCanvas.Children.Add(new Line
+                    {
+                        X1 = a.X, Y1 = a.Y, X2 = b.X, Y2 = b.Y,
+                        Stroke = new SolidColorBrush(Color.FromArgb(24, signal.R, signal.G, signal.B)),
+                        StrokeThickness = 5,
+                        Effect = new BlurEffect { Radius = 5 }
+                    });
+                }
             }
         }
 
@@ -160,47 +167,32 @@ public partial class MainWindow : Window
         {
             var halo = new Ellipse
             {
-                Width = 26, Height = 26,
+                Width = 20, Height = 20,
                 Fill = new RadialGradientBrush(new GradientStopCollection {
-                    new GradientStop(Color.FromArgb(230, signal.R, signal.G, signal.B), 0.0),
-                    new GradientStop(Color.FromArgb(170, signal.R, signal.G, signal.B), 0.30),
-                    new GradientStop(Color.FromArgb(55, signal.R, signal.G, signal.B), 0.70),
+                    new GradientStop(Color.FromArgb(95, signal.R, signal.G, signal.B), 0.0),
+                    new GradientStop(Color.FromArgb(35, signal.R, signal.G, signal.B), 0.55),
                     new GradientStop(Color.FromArgb(0, signal.R, signal.G, signal.B), 1.0)
-                }),
-                Effect = new BlurEffect { Radius = 6 }
+                })
             };
-            Canvas.SetLeft(halo, point.X - 15);
-            Canvas.SetTop(halo, point.Y - 15);
+            Canvas.SetLeft(halo, point.X - 10);
+            Canvas.SetTop(halo, point.Y - 10);
             RadarNodesCanvas.Children.Add(halo);
 
             var node = new Ellipse
             {
-                Width = 8, Height = 8,
-                Fill = new SolidColorBrush(Color.FromRgb(255, 246, 235)),
-                Stroke = coreBrush,
-                StrokeThickness = 2,
+                Width = 6.5, Height = 6.5,
+                Fill = new SolidColorBrush(Color.FromRgb(235, 249, 255)),
+                Stroke = new SolidColorBrush(signal),
+                StrokeThickness = 1.35,
                 Effect = new DropShadowEffect
                 {
-                    Color = signal, BlurRadius = 25, ShadowDepth = 0, Opacity = 1
+                    Color = signal, BlurRadius = 11, ShadowDepth = 0, Opacity = 0.75
                 }
             };
-            Canvas.SetLeft(node, point.X - 5.5);
-            Canvas.SetTop(node, point.Y - 5.5);
+            Canvas.SetLeft(node, point.X - 3.25);
+            Canvas.SetTop(node, point.Y - 3.25);
             RadarNodesCanvas.Children.Add(node);
         }
-
-        var centerNode = new Ellipse
-        {
-            Width = 10, Height = 10,
-            Fill = new SolidColorBrush(Color.FromRgb(218, 255, 250)),
-            Effect = new DropShadowEffect
-            {
-                Color = Color.FromRgb(80, 230, 255), BlurRadius = 18, ShadowDepth = 0, Opacity = 1
-            }
-        };
-        Canvas.SetLeft(centerNode, center - 6);
-        Canvas.SetTop(centerNode, center - 6);
-        RadarNodesCanvas.Children.Add(centerNode);
     }
 
     // Call only after the real tunnel controller confirms an established VPN session.
