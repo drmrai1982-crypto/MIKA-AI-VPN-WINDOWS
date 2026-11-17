@@ -114,86 +114,86 @@ public partial class MainWindow : Window
     {
         const int pointCount = 7;
         const double center = 110;
-        var points = new Point[pointCount];
-
-        // Stable, slightly irregular orbital positions avoid the rigid star-shaped look.
-        double[] angleOffsets = { -90, -90 + 360.0 / 7, -90 + 720.0 / 7, -90 + 1080.0 / 7, -90 + 1440.0 / 7, -90 + 1800.0 / 7, -90 + 2160.0 / 7 };
-        double[] radii = { 72, 72, 72, 72, 72, 72, 72 };
-        for (int i = 0; i < pointCount; i++)
+        // Irregularly distributed telemetry stations: deliberately not arranged
+        // on a circle, so the display cannot form a decorative polygon.
+        Point[] points =
         {
-            double angle = angleOffsets[i] * Math.PI / 180.0;
-            points[i] = new Point(center + Math.Cos(angle) * radii[i],
-                                  center + Math.Sin(angle) * radii[i]);
-        }
+            new(91, 34), new(158, 51), new(181, 116),
+            new(143, 174), new(61, 157), new(35, 91), new(103, 104)
+        };
 
         RadarNodesCanvas.Children.Clear();
         Color signal = _radarConnected
             ? Color.FromRgb(50, 235, 153)
             : Color.FromRgb(255, 72, 105);
 
-        // Four links per node: two clear local links and two deliberately subdued
-        // long-range links. Each undirected link is drawn once.
+        // Each station selects its four nearest peers. Draw each physical link
+        // once; close links are brighter and longer links remain subtle.
+        var links = new HashSet<(int A, int B)>();
         for (int i = 0; i < pointCount; i++)
         {
-            for (int offset = 1; offset <= 2; offset++)
-            {
-                Point a = points[i];
-                Point b = points[(i + offset) % pointCount];
-                bool primary = offset == 1;
-                var lineColor = Color.FromArgb(primary ? (byte)112 : (byte)17,
-                                                signal.R, signal.G, signal.B);
-                RadarNodesCanvas.Children.Add(new Line
-                {
-                    X1 = a.X, Y1 = a.Y, X2 = b.X, Y2 = b.Y,
-                    Stroke = new SolidColorBrush(lineColor),
-                    StrokeThickness = primary ? 1.25 : 0.65,
-                    StrokeDashArray = primary ? null : new DoubleCollection { 2, 4 },
-                    StrokeStartLineCap = PenLineCap.Round,
-                    StrokeEndLineCap = PenLineCap.Round
-                });
-                if (primary)
-                {
-                    RadarNodesCanvas.Children.Add(new Line
-                    {
-                        X1 = a.X, Y1 = a.Y, X2 = b.X, Y2 = b.Y,
-                        Stroke = new SolidColorBrush(Color.FromArgb(12, signal.R, signal.G, signal.B)),
-                        StrokeThickness = 5,
-                        Effect = new BlurEffect { Radius = 5 }
-                    });
-                }
-            }
+            var nearest = Enumerable.Range(0, pointCount)
+                .Where(j => j != i)
+                .OrderBy(j => DistanceSquared(points[i], points[j]))
+                .Take(4);
+            foreach (int j in nearest)
+                links.Add((Math.Min(i, j), Math.Max(i, j)));
         }
 
+        foreach (var link in links)
+        {
+            Point a = points[link.A], b = points[link.B];
+            double distance = Math.Sqrt(DistanceSquared(a, b));
+            bool local = distance < 78;
+            byte alpha = local ? (byte)92 : (byte)28;
+            RadarNodesCanvas.Children.Add(new Line
+            {
+                X1 = a.X, Y1 = a.Y, X2 = b.X, Y2 = b.Y,
+                Stroke = new SolidColorBrush(Color.FromArgb(alpha, signal.R, signal.G, signal.B)),
+                StrokeThickness = local ? 1.05 : 0.7,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round
+            });
+        }
+
+        // Small, restrained station markers with a soft halo; no oversized
+        // glowing vertices or heavy polygon outline.
         foreach (Point point in points)
         {
             var halo = new Ellipse
             {
-                Width = 17, Height = 17,
+                Width = 15, Height = 15,
                 Fill = new RadialGradientBrush(new GradientStopCollection {
-                    new GradientStop(Color.FromArgb(95, signal.R, signal.G, signal.B), 0.0),
-                    new GradientStop(Color.FromArgb(35, signal.R, signal.G, signal.B), 0.55),
+                    new GradientStop(Color.FromArgb(72, signal.R, signal.G, signal.B), 0.0),
+                    new GradientStop(Color.FromArgb(22, signal.R, signal.G, signal.B), 0.58),
                     new GradientStop(Color.FromArgb(0, signal.R, signal.G, signal.B), 1.0)
                 })
             };
-            Canvas.SetLeft(halo, point.X - 8.5);
-            Canvas.SetTop(halo, point.Y - 8.5);
+            Canvas.SetLeft(halo, point.X - 7.5);
+            Canvas.SetTop(halo, point.Y - 7.5);
             RadarNodesCanvas.Children.Add(halo);
 
             var node = new Ellipse
             {
-                Width = 5.5, Height = 5.5,
-                Fill = new SolidColorBrush(Color.FromRgb(235, 249, 255)),
-                Stroke = new SolidColorBrush(signal),
-                StrokeThickness = 1.35,
+                Width = 5, Height = 5,
+                Fill = new SolidColorBrush(Color.FromRgb(230, 246, 252)),
+                Stroke = new SolidColorBrush(Color.FromArgb(210, signal.R, signal.G, signal.B)),
+                StrokeThickness = 1,
                 Effect = new DropShadowEffect
                 {
-                    Color = signal, BlurRadius = 11, ShadowDepth = 0, Opacity = 0.75
+                    Color = signal, BlurRadius = 7, ShadowDepth = 0, Opacity = 0.55
                 }
             };
-            Canvas.SetLeft(node, point.X - 2.75);
-            Canvas.SetTop(node, point.Y - 2.75);
+            Canvas.SetLeft(node, point.X - 2.5);
+            Canvas.SetTop(node, point.Y - 2.5);
             RadarNodesCanvas.Children.Add(node);
         }
+    }
+
+    private static double DistanceSquared(Point a, Point b)
+    {
+        double dx = a.X - b.X, dy = a.Y - b.Y;
+        return dx * dx + dy * dy;
     }
 
     // Call only after the real tunnel controller confirms an established VPN session.
