@@ -83,16 +83,27 @@
        <TextBlock Canvas.Left="15" Canvas.Top="106" Text="W" Foreground="#8299A9" FontSize="8"/>
       </Canvas>
       <Canvas x:Name="RadarSweepCanvas" Width="220" Height="220" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,42,18" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False">
-       <Path Data="M 110,110 L 110,12 A 98,98 0 0 1 179.3,40.7 Z" Opacity="0.78">
+       <!-- Fading phosphor trail sits behind the leading sweep edge. -->
+       <Path Data="M 110,110 L 110,12 A 98,98 0 0 0 15.6,83.2 Z" Opacity="0.16">
         <Path.Fill>
          <RadialGradientBrush Center="0.5,0.5" RadiusX="1" RadiusY="1">
-          <GradientStop Color="#002FE8FF" Offset="0"/>
-          <GradientStop Color="#123FEAFF" Offset="0.38"/>
-          <GradientStop Color="#304FE8FF" Offset="0.82"/>
-          <GradientStop Color="#004FE8FF" Offset="1"/>
+          <GradientStop Color="#263FEAFF" Offset="0"/>
+          <GradientStop Color="#183FEAFF" Offset="0.52"/>
+          <GradientStop Color="#063FEAFF" Offset="0.9"/>
+          <GradientStop Color="#003FEAFF" Offset="1"/>
          </RadialGradientBrush>
         </Path.Fill>
-        <Path.Effect><BlurEffect Radius="13"/></Path.Effect>
+        <Path.Effect><BlurEffect Radius="15"/></Path.Effect>
+       </Path>
+       <Path Data="M 110,110 L 110,12 A 98,98 0 0 0 40.7,40.7 Z" Opacity="0.28">
+        <Path.Fill>
+         <RadialGradientBrush Center="0.5,0.5" RadiusX="1" RadiusY="1">
+          <GradientStop Color="#303FEAFF" Offset="0"/>
+          <GradientStop Color="#1C3FEAFF" Offset="0.62"/>
+          <GradientStop Color="#003FEAFF" Offset="1"/>
+         </RadialGradientBrush>
+        </Path.Fill>
+        <Path.Effect><BlurEffect Radius="11"/></Path.Effect>
        </Path>
        <Line X1="110" Y1="110" X2="110" Y2="13" Stroke="#5545DFFF" StrokeThickness="13" StrokeStartLineCap="Round">
         <Line.Effect><BlurEffect Radius="12"/></Line.Effect>
