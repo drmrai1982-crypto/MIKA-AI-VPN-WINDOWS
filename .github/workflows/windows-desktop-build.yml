@@ -47,12 +47,6 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Restore
-        run: dotnet restore desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj
-
-      - name: Publish Windows x64 application
-        run: dotnet publish desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj --configuration Release --no-restore --output artifacts/windows-x64
-
       - name: Download Android-matching flat world map data
         shell: pwsh
         run: |
@@ -63,6 +57,12 @@ jobs:
           if (!(Test-Path $geoJson) -or (Get-Item $geoJson).Length -lt 500000) {
             throw "Natural Earth country geometry download is missing or unexpectedly small."
           }
+
+      - name: Restore
+        run: dotnet restore desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj
+
+      - name: Publish Windows x64 application
+        run: dotnet publish desktop/MikaAiVpn.Desktop/MikaAiVpn.Desktop.csproj --configuration Release --no-restore --output artifacts/windows-x64
 
       - name: Upload Windows x64 application
         uses: actions/upload-artifact@v4
