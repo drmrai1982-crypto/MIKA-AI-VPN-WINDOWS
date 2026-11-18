@@ -185,11 +185,11 @@ public partial class MainWindow : Window
 
     }
 
-    // Seven fixed stations, each with four neighbours. Build the network once:
-    // the globe rotation supplies motion without per-second geometry rebuilds.
+    // Sixteen fixed stations ensure at least seven are normally visible on
+    // the front hemisphere. Each has four neighbours; geometry is built once.
     private Model3DGroup BuildGlobeNetwork(Transform3D sharedRotation)
     {
-        const int stationCount = 7;
+        const int stationCount = 16;
         _globeStations = CreateDistributedStations(stationCount);
 
         Color signal = _radarConnected
@@ -255,8 +255,8 @@ public partial class MainWindow : Window
         material.Children.Add(new DiffuseMaterial(_networkLineBrush));
         material.Children.Add(new EmissiveMaterial(_networkGlowBrush));
 
-        // A seven-node ring with links to the next one and two stations.
-        // Every station has exactly four links: 14 arcs total, generated once.
+        // A sixteen-node ring with links to the next one and two stations.
+        // Every station has exactly four links: 32 arcs total, generated once.
         for (int i = 0; i < _globeStations.Length; i++)
         {
             for (int offset = 1; offset <= 2; offset++)
