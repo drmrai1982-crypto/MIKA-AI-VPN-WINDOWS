@@ -112,25 +112,17 @@ public sealed class WorldMapView : FrameworkElement
         double top = (h - mapHeight) / 2.0;
         dc.PushTransform(new MatrixTransform(new Matrix(mapWidth, 0, 0, mapHeight, left, top)));
 
-        // Agreed Android palette: deep navy ocean and restrained warm-gold graticule.
+        // Uniform ocean/background color across the entire map, including every country.
+        // Only country borders and island coastlines are drawn in warm gold.
         var ocean = new SolidColorBrush(Color.FromRgb(0x17, 0x2B, 0x49));
         dc.DrawRoundedRectangle(ocean, null, new Rect(.012, .035, .976, .93), .025, .025);
 
-        var gridPen = new Pen(new SolidColorBrush(Color.FromArgb(22, 0xE6, 0xD7, 0x7A)), .00065);
-        for (int i = 1; i <= 5; i++)
-            dc.DrawLine(gridPen, new Point(.025, i / 6.0), new Point(.975, i / 6.0));
-        for (int i = 1; i <= 11; i++)
-            dc.DrawLine(gridPen, new Point(i / 12.0, .02), new Point(i / 12.0, .98));
-
-        // Flat 2D warm cream-gold land, matching the agreed Android map palette.
-        // Keep the fill calm and readable; network colors remain independent.
-        var landFill = new SolidColorBrush(Color.FromRgb(0xE6, 0xD7, 0x7A));
-        var coast = new Pen(new SolidColorBrush(Color.FromRgb(0xF3, 0xE8, 0xA8)), .00125);
-        var coastHighlight = new Pen(new SolidColorBrush(Color.FromArgb(95, 0xFF, 0xF2, 0xC2)), .00055);
+        var countryBorder = new Pen(new SolidColorBrush(Color.FromRgb(0xE6, 0xD7, 0x7A)), .00115);
+        var borderHighlight = new Pen(new SolidColorBrush(Color.FromArgb(65, 0xFF, 0xF2, 0xC2)), .00045);
         foreach (var country in _countries)
         {
-            dc.DrawGeometry(landFill, coast, country);
-            dc.DrawGeometry(null, coastHighlight, country);
+            dc.DrawGeometry(null, countryBorder, country);
+            dc.DrawGeometry(null, borderHighlight, country);
         }
 
         // Four curved routes per node. Seven nodes brighten each second.
