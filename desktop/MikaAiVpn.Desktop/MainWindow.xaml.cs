@@ -3,11 +3,9 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Media3D;
-using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
-using System.Windows.Threading;
 
 namespace MikaAiVpn.Desktop;
 
@@ -23,21 +21,27 @@ public partial class MainWindow : Window
     private SolidColorBrush? _radarTargetGlowBrush;
     private Model3DGroup? _globeNetworkLines;
     private Point3D[] _globeStations = Array.Empty<Point3D>();
-    private DispatcherTimer? _networkShuffleTimer;
+    private Storyboard? _globeStoryboard;
+    private Storyboard? _radarStoryboard;
+    private bool _animationsPaused;
 
     public MainWindow()
     {
         InitializeComponent();
+        StateChanged += (_, _) => UpdateAnimationState();
+        Activated += (_, _) => UpdateAnimationState();
+        Deactivated += (_, _) => UpdateAnimationState();
+        Loaded += (_, _) => UpdateAnimationState();
+        Closed += (_, _) => StopAnimations();
+
         BuildGlobe();
-        StartGlobeNetworkShuffle();
         StartRadar();
-        Closed += (_, _) => _networkShuffleTimer?.Stop();
         SetLanguage(false);
     }
 
     private void BuildGlobe()
     {
-        const int lonSteps = 192, latSteps = 96;
+        const int lonSteps = 96, latSteps = 48;
         var mesh = new MeshGeometry3D();
         for (int y = 0; y <= latSteps; y++)
         {
@@ -57,10 +61,14 @@ public partial class MainWindow : Window
                 mesh.TriangleIndices.Add(a + 1); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(b + 1);
             }
 
+        mesh.Freeze();
         var image = LoadEarthTexture();
+        var imageBrush = new ImageBrush(image) { Stretch = Stretch.Fill };
+        imageBrush.Freeze();
         var material = new MaterialGroup();
-        material.Children.Add(new DiffuseMaterial(new ImageBrush(image) { Stretch = Stretch.Fill }));
+        material.Children.Add(new DiffuseMaterial(imageBrush));
         material.Children.Add(new EmissiveMaterial(new SolidColorBrush(Color.FromArgb(18, 38, 52, 68))));
+        material.Freeze();
         var spin = new AxisAngleRotation3D(new Vector3D(0, 1, 0), 0);
         var globeTransform = new RotateTransform3D(spin);
         var sphere = new GeometryModel3D(mesh, material) { BackMaterial = material, Transform = globeTransform };
@@ -73,7 +81,15 @@ public partial class MainWindow : Window
         scene.Children.Add(BuildGlobeNetwork(globeTransform));
         GlobeViewport.Camera = new PerspectiveCamera(new Point3D(0, 0, 3.15), new Vector3D(0, 0, -3.15), new Vector3D(0, 1, 0), 38);
         GlobeViewport.Children.Add(new ModelVisual3D { Content = scene });
-        spin.BeginAnimation(AxisAngleRotation3D.AngleProperty, new DoubleAnimation(0, 360, TimeSpan.FromSeconds(72)) { RepeatBehavior = RepeatBehavior.Forever });
+        var globeRotation = new DoubleAnimation(0, 360, TimeSpan.FromSeconds(90))
+        {
+            RepeatBehavior = RepeatBehavior.Forever
+        };
+        _globeStoryboard = new Storyboard();
+        _globeStoryboard.Children.Add(globeRotation);
+        Storyboard.SetTarget(globeRotation, spin);
+        Storyboard.SetTargetProperty(globeRotation, new PropertyPath(AxisAngleRotation3D.AngleProperty));
+        _globeStoryboard.Begin(this, true);
     }
 
     private static ImageSource LoadEarthTexture()
@@ -89,6 +105,9 @@ public partial class MainWindow : Window
         bitmap.UriSource = new Uri(texturePath, UriKind.Absolute);
         bitmap.CacheOption = BitmapCacheOption.OnLoad;
         bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+        // The globe is rendered at about 500 px. Decode a 2K texture instead
+        // of keeping the full 13,500 px source in memory (especially on iGPU PCs).
+        bitmap.DecodePixelWidth = 2048;
         bitmap.EndInit();
         bitmap.Freeze();
         return bitmap;
@@ -98,9 +117,9 @@ public partial class MainWindow : Window
     {
         // Fine polar scale: major bearings every 30 degrees, minor ticks between them.
         const double center = 110;
-        for (int i = 0; i < 72; i++)
+        for (int i = 0; i < 36; i++)
         {
-            double angle = i * Math.PI / 36.0;
+            double angle = i * Math.PI / 18.0;
             double outer = 101;
             double inner = i % 6 == 0 ? 91 : 96;
             RadarCanvas.Children.Add(new Line
@@ -154,17 +173,23 @@ public partial class MainWindow : Window
 
         var spin = new RotateTransform();
         RadarSweepCanvas.RenderTransform = spin;
-        spin.BeginAnimation(RotateTransform.AngleProperty,
-            new DoubleAnimation(0, 360, TimeSpan.FromSeconds(7.5))
-            { RepeatBehavior = RepeatBehavior.Forever });
+        var radarRotation = new DoubleAnimation(0, 360, TimeSpan.FromSeconds(9))
+        {
+            RepeatBehavior = RepeatBehavior.Forever
+        };
+        _radarStoryboard = new Storyboard();
+        _radarStoryboard.Children.Add(radarRotation);
+        Storyboard.SetTarget(radarRotation, spin);
+        Storyboard.SetTargetProperty(radarRotation, new PropertyPath(RotateTransform.AngleProperty));
+        _radarStoryboard.Begin(this, true);
 
     }
 
-    // A dense, evenly distributed set of fixed globe nodes. The nodes never
-    // jump; only their links are rewired once per second.
+    // Seven fixed stations, each with four neighbours. Build the network once:
+    // the globe rotation supplies motion without per-second geometry rebuilds.
     private Model3DGroup BuildGlobeNetwork(Transform3D sharedRotation)
     {
-        const int stationCount = 32;
+        const int stationCount = 7;
         _globeStations = CreateDistributedStations(stationCount);
 
         Color signal = _radarConnected
@@ -189,7 +214,7 @@ public partial class MainWindow : Window
             // Keep every node fixed to the globe surface; the globe depth buffer
             // naturally hides nodes on the far side of the rotating planet.
             var nodeCenter = new Point3D(station.X * 1.014, station.Y * 1.014, station.Z * 1.014);
-            var marker = CreateSphere(nodeCenter, 0.016, 14, 10);
+            var marker = CreateSphere(nodeCenter, 0.016, 8, 6);
             nodes.Children.Add(new GeometryModel3D(marker, nodeMaterial) { BackMaterial = nodeMaterial });
         }
 
@@ -220,16 +245,9 @@ public partial class MainWindow : Window
         return points;
     }
 
-    private void StartGlobeNetworkShuffle()
-    {
-        _networkShuffleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _networkShuffleTimer.Tick += (_, _) => RebuildGlobeConnections();
-        _networkShuffleTimer.Start();
-    }
-
     private void RebuildGlobeConnections()
     {
-        if (_globeNetworkLines is null || _globeStations.Length < 6 ||
+        if (_globeNetworkLines is null || _globeStations.Length < 5 ||
             _networkLineBrush is null || _networkGlowBrush is null) return;
 
         _globeNetworkLines.Children.Clear();
@@ -237,30 +255,46 @@ public partial class MainWindow : Window
         material.Children.Add(new DiffuseMaterial(_networkLineBrush));
         material.Children.Add(new EmissiveMaterial(_networkGlowBrush));
 
-        // Shuffle a permutation, then connect offsets 1 and 2. This produces
-        // 64 unique links for 32 nodes, with exactly four links per node.
-        int[] order = Enumerable.Range(0, _globeStations.Length).ToArray();
-        for (int i = order.Length - 1; i > 0; i--)
+        // A seven-node ring with links to the next one and two stations.
+        // Every station has exactly four links: 14 arcs total, generated once.
+        for (int i = 0; i < _globeStations.Length; i++)
         {
-            int j = Random.Shared.Next(i + 1);
-            (order[i], order[j]) = (order[j], order[i]);
-        }
-
-        var edges = new HashSet<(int A, int B)>();
-        for (int i = 0; i < order.Length; i++)
             foreach (int offset in new[] { 1, 2 })
             {
-                int a = order[i], b = order[(i + offset) % order.Length];
-                edges.Add((Math.Min(a, b), Math.Max(a, b)));
+                int next = (i + offset) % _globeStations.Length;
+                var arc = CreateSurfaceArc(
+                    _globeStations[i], _globeStations[next],
+                    1.014, 0.0024, 18, 5);
+                arc.Freeze();
+                _globeNetworkLines.Children.Add(
+                    new GeometryModel3D(arc, material) { BackMaterial = material });
             }
-
-        foreach (var edge in edges)
-        {
-            var arc = CreateSurfaceArc(_globeStations[edge.A], _globeStations[edge.B],
-                1.014, 0.0024, 36, 7);
-            _globeNetworkLines.Children.Add(
-                new GeometryModel3D(arc, material) { BackMaterial = material });
         }
+    }
+
+    private void UpdateAnimationState()
+    {
+        bool shouldRun = WindowState != WindowState.Minimized && IsActive;
+        if (shouldRun)
+        {
+            if (!_animationsPaused) return;
+            _globeStoryboard?.Resume(this);
+            _radarStoryboard?.Resume(this);
+            _animationsPaused = false;
+        }
+        else
+        {
+            if (_animationsPaused) return;
+            _globeStoryboard?.Pause(this);
+            _radarStoryboard?.Pause(this);
+            _animationsPaused = true;
+        }
+    }
+
+    private void StopAnimations()
+    {
+        _globeStoryboard?.Stop(this);
+        _radarStoryboard?.Stop(this);
     }
 
     private static Point3D GeoPoint(double latitudeDegrees, double longitudeDegrees)
@@ -317,6 +351,7 @@ public partial class MainWindow : Window
                 mesh.TriangleIndices.Add(current); mesh.TriangleIndices.Add(nextRing); mesh.TriangleIndices.Add(nextSide);
                 mesh.TriangleIndices.Add(nextSide); mesh.TriangleIndices.Add(nextRing); mesh.TriangleIndices.Add(nextRingSide);
             }
+        mesh.Freeze();
         return mesh;
     }
 
@@ -343,6 +378,8 @@ public partial class MainWindow : Window
                 mesh.TriangleIndices.Add(a); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(a + 1);
                 mesh.TriangleIndices.Add(a + 1); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(b + 1);
             }
+        mesh.Freeze();
+        mesh.Freeze();
         return mesh;
     }
 
