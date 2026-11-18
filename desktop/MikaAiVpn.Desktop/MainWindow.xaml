@@ -62,10 +62,10 @@
          <GradientStop Color="#0027D9FF" Offset="1"/>
         </RadialGradientBrush>
        </Ellipse.Fill>
-       <Ellipse.Effect><BlurEffect Radius="34"/></Ellipse.Effect>
+       
       </Ellipse>
       <Ellipse Width="528" Height="528" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="#553F9FFF" StrokeThickness="4" IsHitTestVisible="False">
-       <Ellipse.Effect><BlurEffect Radius="12"/></Ellipse.Effect>
+       
       </Ellipse>
       <Viewport3D x:Name="GlobeViewport" Width="500" Height="500" HorizontalAlignment="Center" VerticalAlignment="Center" ClipToBounds="False" IsHitTestVisible="False"/>
       <Canvas x:Name="RadarCanvas" Width="220" Height="220" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,42,18" IsHitTestVisible="False">
@@ -93,7 +93,7 @@
           <GradientStop Color="#0052E8FF" Offset="1"/>
          </RadialGradientBrush>
         </Path.Fill>
-        <Path.Effect><BlurEffect Radius="8"/></Path.Effect>
+        
        </Path>
        <Path Data="M 110,110 L 110,12 A 98,98 0 0 0 47.0,35.0 Z" Opacity="0.56">
         <Path.Fill>
@@ -103,14 +103,14 @@
           <GradientStop Color="#005FEFFF" Offset="1"/>
          </RadialGradientBrush>
         </Path.Fill>
-        <Path.Effect><BlurEffect Radius="5"/></Path.Effect>
+        
        </Path>
        <Line X1="110" Y1="110" X2="110" Y2="13" Stroke="#5545DFFF" StrokeThickness="13" StrokeStartLineCap="Round">
-        <Line.Effect><BlurEffect Radius="12"/></Line.Effect>
+        
        </Line>
        <Line X1="110" Y1="110" X2="110" Y2="13" Stroke="#B8A9F5FF" StrokeThickness="1.4" StrokeStartLineCap="Round"/>
        <Ellipse Canvas.Left="105" Canvas.Top="105" Width="10" Height="10" Fill="#FFEAFBFF" Stroke="#FF70E8FF" StrokeThickness="1.2">
-        <Ellipse.Effect><DropShadowEffect Color="#55DFFF" BlurRadius="16" ShadowDepth="0" Opacity="0.9"/></Ellipse.Effect>
+        
        </Ellipse>
       </Canvas>
       <Canvas x:Name="RadarTargetsCanvas" Width="220" Height="220" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,42,18" IsHitTestVisible="False"/>
