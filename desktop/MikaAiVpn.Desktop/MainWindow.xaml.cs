@@ -7,6 +7,7 @@ using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 
 namespace MikaAiVpn.Desktop;
 
@@ -20,11 +21,15 @@ public partial class MainWindow : Window
     private SolidColorBrush? _networkNodeGlowBrush;
     private SolidColorBrush? _radarTargetBrush;
     private SolidColorBrush? _radarTargetGlowBrush;
+    private Model3DGroup? _globeNetworkLines;
+    private Point3D[] _globeStations = Array.Empty<Point3D>();
+    private DispatcherTimer? _networkShuffleTimer;
 
     public MainWindow()
     {
         InitializeComponent();
         BuildGlobe();
+        StartGlobeNetworkShuffle();
         StartRadar();
         SetLanguage(false);
     }
@@ -154,24 +159,12 @@ public partial class MainWindow : Window
 
     }
 
-    // Seven geographic stations on the globe. The graph is deterministic and
-    // 4-regular: 14 unique surface arcs, exactly four connections per station.
+    // A dense, evenly distributed set of fixed globe nodes. The nodes never
+    // jump; only their links are rewired once per second.
     private Model3DGroup BuildGlobeNetwork(Transform3D sharedRotation)
     {
-        Point3D[] stations =
-        {
-            GeoPoint(18, -132), GeoPoint(42, -54), GeoPoint(8, 12),
-            GeoPoint(36, 78), GeoPoint(-22, 142), GeoPoint(-48, -8),
-            GeoPoint(-12, 54)
-        };
-        int[] permutation = { 0, 3, 1, 5, 2, 6, 4 };
-        var edges = new HashSet<(int A, int B)>();
-        for (int i = 0; i < 7; i++)
-            foreach (int offset in new[] { 1, 2 })
-            {
-                int a = permutation[i], b = permutation[(i + offset) % 7];
-                edges.Add((Math.Min(a, b), Math.Max(a, b)));
-            }
+        const int stationCount = 32;
+        _globeStations = CreateDistributedStations(stationCount);
 
         Color signal = _radarConnected
             ? Color.FromRgb(48, 218, 145)
@@ -182,29 +175,91 @@ public partial class MainWindow : Window
         lineMaterial.Children.Add(new DiffuseMaterial(_networkLineBrush));
         lineMaterial.Children.Add(new EmissiveMaterial(_networkGlowBrush));
 
-        var group = new Model3DGroup();
-        foreach (var edge in edges)
-        {
-            // Arc centerlines start at the node centers (radius 1.014), then rise above the globe at mid-span.
-            var arc = CreateSurfaceArc(stations[edge.A], stations[edge.B], 1.014, 0.0024, 36, 7);
-            group.Children.Add(new GeometryModel3D(arc, lineMaterial) { BackMaterial = lineMaterial });
-        }
-
+        _globeNetworkLines = new Model3DGroup();
         var nodeMaterial = new MaterialGroup();
         _networkNodeCoreBrush = new SolidColorBrush(Color.FromArgb(245, signal.R, signal.G, signal.B));
         _networkNodeGlowBrush = new SolidColorBrush(Color.FromArgb(220, signal.R, signal.G, signal.B));
         nodeMaterial.Children.Add(new DiffuseMaterial(_networkNodeCoreBrush));
         nodeMaterial.Children.Add(new EmissiveMaterial(_networkNodeGlowBrush));
-        foreach (Point3D station in stations)
+
+        var nodes = new Model3DGroup();
+        foreach (Point3D station in _globeStations)
         {
-            // Lift the whole marker slightly clear of the textured surface.
+            // Keep every node fixed to the globe surface; the globe depth buffer
+            // naturally hides nodes on the far side of the rotating planet.
             var nodeCenter = new Point3D(station.X * 1.014, station.Y * 1.014, station.Z * 1.014);
             var marker = CreateSphere(nodeCenter, 0.016, 14, 10);
-            group.Children.Add(new GeometryModel3D(marker, nodeMaterial) { BackMaterial = nodeMaterial });
+            nodes.Children.Add(new GeometryModel3D(marker, nodeMaterial) { BackMaterial = nodeMaterial });
         }
 
+        var group = new Model3DGroup();
+        group.Children.Add(_globeNetworkLines);
+        group.Children.Add(nodes);
         group.Transform = sharedRotation;
+        RebuildGlobeConnections();
         return group;
+    }
+
+    private static Point3D[] CreateDistributedStations(int count)
+    {
+        // Fibonacci-sphere placement avoids clusters and leaves well over seven
+        // nodes on the viewer-facing hemisphere at every rotation angle.
+        const double goldenAngle = Math.PI * (3.0 - 2.23606797749979);
+        var points = new Point3D[count];
+        for (int i = 0; i < count; i++)
+        {
+            double y = 1.0 - 2.0 * (i + 0.5) / count;
+            double radius = Math.Sqrt(Math.Max(0.0, 1.0 - y * y));
+            double longitude = goldenAngle * i;
+            points[i] = new Point3D(
+                Math.Cos(longitude) * radius,
+                y,
+                Math.Sin(longitude) * radius);
+        }
+        return points;
+    }
+
+    private void StartGlobeNetworkShuffle()
+    {
+        _networkShuffleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _networkShuffleTimer.Tick += (_, _) => RebuildGlobeConnections();
+        _networkShuffleTimer.Start();
+    }
+
+    private void RebuildGlobeConnections()
+    {
+        if (_globeNetworkLines is null || _globeStations.Length < 6 ||
+            _networkLineBrush is null || _networkGlowBrush is null) return;
+
+        _globeNetworkLines.Children.Clear();
+        var material = new MaterialGroup();
+        material.Children.Add(new DiffuseMaterial(_networkLineBrush));
+        material.Children.Add(new EmissiveMaterial(_networkGlowBrush));
+
+        // Shuffle a permutation, then connect offsets 1 and 2. This produces
+        // 64 unique links for 32 nodes, with exactly four links per node.
+        int[] order = Enumerable.Range(0, _globeStations.Length).ToArray();
+        for (int i = order.Length - 1; i > 0; i--)
+        {
+            int j = Random.Shared.Next(i + 1);
+            (order[i], order[j]) = (order[j], order[i]);
+        }
+
+        var edges = new HashSet<(int A, int B)>();
+        for (int i = 0; i < order.Length; i++)
+            foreach (int offset in new[] { 1, 2 })
+            {
+                int a = order[i], b = order[(i + offset) % order.Length];
+                edges.Add((Math.Min(a, b), Math.Max(a, b)));
+            }
+
+        foreach (var edge in edges)
+        {
+            var arc = CreateSurfaceArc(_globeStations[edge.A], _globeStations[edge.B],
+                1.014, 0.0024, 36, 7);
+            _globeNetworkLines.Children.Add(
+                new GeometryModel3D(arc, material) { BackMaterial = material });
+        }
     }
 
     private static Point3D GeoPoint(double latitudeDegrees, double longitudeDegrees)
