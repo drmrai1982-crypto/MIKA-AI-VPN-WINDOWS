@@ -186,7 +186,7 @@ public partial class MainWindow : Window
         foreach (var edge in edges)
         {
             // A shallow great-circle arc rises visibly above the globe at its midpoint.
-            var arc = CreateSurfaceArc(stations[edge.A], stations[edge.B], 1.006, 0.0024, 36, 7);
+            var arc = CreateSurfaceArc(stations[edge.A], stations[edge.B], 1.0, 0.0024, 36, 7);
             group.Children.Add(new GeometryModel3D(arc, lineMaterial) { BackMaterial = lineMaterial });
         }
 
