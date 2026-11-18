@@ -14,6 +14,9 @@ public partial class MainWindow : Window
 {
     private bool _isPersian;
     private bool _radarConnected;
+    private SolidColorBrush? _networkLineBrush;
+    private SolidColorBrush? _networkGlowBrush;
+    private SolidColorBrush? _networkNodeGlowBrush;
 
     public MainWindow()
     {
@@ -132,13 +135,11 @@ public partial class MainWindow : Window
         Color signal = _radarConnected
             ? Color.FromRgb(48, 218, 145)
             : Color.FromRgb(245, 76, 101);
-        var lineBrush = new SolidColorBrush(Color.FromArgb(205, signal.R, signal.G, signal.B));
-        lineBrush.Freeze();
+        _networkLineBrush = new SolidColorBrush(Color.FromArgb(205, signal.R, signal.G, signal.B));
+        _networkGlowBrush = new SolidColorBrush(Color.FromArgb(72, signal.R, signal.G, signal.B));
         var lineMaterial = new MaterialGroup();
-        lineMaterial.Children.Add(new DiffuseMaterial(lineBrush));
-        var glowBrush = new SolidColorBrush(Color.FromArgb(72, signal.R, signal.G, signal.B));
-        glowBrush.Freeze();
-        lineMaterial.Children.Add(new EmissiveMaterial(glowBrush));
+        lineMaterial.Children.Add(new DiffuseMaterial(_networkLineBrush));
+        lineMaterial.Children.Add(new EmissiveMaterial(_networkGlowBrush));
 
         var group = new Model3DGroup();
         foreach (var edge in edges)
@@ -149,10 +150,9 @@ public partial class MainWindow : Window
 
         var nodeMaterial = new MaterialGroup();
         var coreBrush = new SolidColorBrush(Color.FromRgb(226, 246, 255));
-        var nodeGlow = new SolidColorBrush(Color.FromArgb(220, signal.R, signal.G, signal.B));
-        coreBrush.Freeze(); nodeGlow.Freeze();
+        _networkNodeGlowBrush = new SolidColorBrush(Color.FromArgb(220, signal.R, signal.G, signal.B));
         nodeMaterial.Children.Add(new DiffuseMaterial(coreBrush));
-        nodeMaterial.Children.Add(new EmissiveMaterial(nodeGlow));
+        nodeMaterial.Children.Add(new EmissiveMaterial(_networkNodeGlowBrush));
         foreach (Point3D station in stations)
         {
             var marker = CreateSphere(station, 0.014, 12, 8);
@@ -244,7 +244,14 @@ public partial class MainWindow : Window
     }
 
     // This is only a visual state hook; call it after a real tunnel state change.
-    private void UpdateRadarState(bool connected) => _radarConnected = connected;
+    private void UpdateRadarState(bool connected)
+    {
+        _radarConnected = connected;
+        Color signal = connected ? Color.FromRgb(48, 218, 145) : Color.FromRgb(245, 76, 101);
+        if (_networkLineBrush is not null) _networkLineBrush.Color = Color.FromArgb(205, signal.R, signal.G, signal.B);
+        if (_networkGlowBrush is not null) _networkGlowBrush.Color = Color.FromArgb(72, signal.R, signal.G, signal.B);
+        if (_networkNodeGlowBrush is not null) _networkNodeGlowBrush.Color = Color.FromArgb(220, signal.R, signal.G, signal.B);
+    }
 
     private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
