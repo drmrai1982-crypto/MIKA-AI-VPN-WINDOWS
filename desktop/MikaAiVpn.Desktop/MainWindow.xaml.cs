@@ -12,8 +12,10 @@ public partial class MainWindow : Window
     private bool _isPersian;
     private SolidColorBrush? _radarTargetBrush;
     private SolidColorBrush? _radarTargetGlowBrush;
-    private Storyboard? _radarStoryboard;
-    private bool _animationsPaused;
+    private RotateTransform? _radarRotation;
+    private readonly DispatcherTimer _radarTimer = new(DispatcherPriority.Render);
+    private double _radarAngle;
+    private bool _animationsPaused = true;
 
     public MainWindow()
     {
@@ -23,6 +25,14 @@ public partial class MainWindow : Window
         Deactivated += (_, _) => UpdateAnimationState();
         Loaded += (_, _) => UpdateAnimationState();
         Closed += (_, _) => StopAnimations();
+
+        _radarTimer.Interval = TimeSpan.FromMilliseconds(33);
+        _radarTimer.Tick += (_, _) =>
+        {
+            if (_radarRotation is null) return;
+            _radarAngle = (_radarAngle + 2.0) % 360.0;
+            _radarRotation.Angle = _radarAngle;
+        };
 
         StartRadar();
         SetLanguage(false);
@@ -73,14 +83,9 @@ public partial class MainWindow : Window
             RadarTargetsCanvas.Children.Add(dot);
         }
 
-        var spin = new RotateTransform();
-        RadarSweepCanvas.RenderTransform = spin;
-        var animation = new DoubleAnimation(0, 360, TimeSpan.FromSeconds(9)) { RepeatBehavior = RepeatBehavior.Forever };
-        _radarStoryboard = new Storyboard();
-        _radarStoryboard.Children.Add(animation);
-        Storyboard.SetTarget(animation, spin);
-        Storyboard.SetTargetProperty(animation, new PropertyPath(RotateTransform.AngleProperty));
-        _radarStoryboard.Begin(this, true);
+        _radarRotation = new RotateTransform(0, 110, 110);
+        RadarSweepCanvas.RenderTransformOrigin = new Point(0.5, 0.5);
+        RadarSweepCanvas.RenderTransform = _radarRotation;
     }
 
     private void UpdateAnimationState()
@@ -89,14 +94,14 @@ public partial class MainWindow : Window
         if (shouldRun)
         {
             if (!_animationsPaused) return;
-            _radarStoryboard?.Resume(this);
+            _radarTimer.Start();
             WorldMap.ResumeAnimation();
             _animationsPaused = false;
         }
         else
         {
             if (_animationsPaused) return;
-            _radarStoryboard?.Pause(this);
+            _radarTimer.Stop();
             WorldMap.PauseAnimation();
             _animationsPaused = true;
         }
@@ -104,7 +109,7 @@ public partial class MainWindow : Window
 
     private void StopAnimations()
     {
-        _radarStoryboard?.Stop(this);
+        _radarTimer.Stop();
         WorldMap.PauseAnimation();
     }
 
