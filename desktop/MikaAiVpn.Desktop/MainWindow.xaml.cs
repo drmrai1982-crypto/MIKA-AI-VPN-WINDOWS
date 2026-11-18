@@ -228,8 +228,8 @@ public partial class MainWindow : Window
 
     private static Point3D[] CreateDistributedStations(int count)
     {
-        // Fibonacci-sphere placement avoids clusters and leaves well over seven
-        // nodes on the viewer-facing hemisphere at every rotation angle.
+        // Fibonacci-sphere placement spreads the seven fixed stations evenly
+        // around the globe without adding runtime layout calculations.
         const double goldenAngle = Math.PI * (3.0 - 2.23606797749979);
         var points = new Point3D[count];
         for (int i = 0; i < count; i++)
@@ -259,7 +259,7 @@ public partial class MainWindow : Window
         // Every station has exactly four links: 14 arcs total, generated once.
         for (int i = 0; i < _globeStations.Length; i++)
         {
-            foreach (int offset in new[] { 1, 2 })
+            for (int offset = 1; offset <= 2; offset++)
             {
                 int next = (i + offset) % _globeStations.Length;
                 var arc = CreateSurfaceArc(
@@ -378,7 +378,6 @@ public partial class MainWindow : Window
                 mesh.TriangleIndices.Add(a); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(a + 1);
                 mesh.TriangleIndices.Add(a + 1); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(b + 1);
             }
-        mesh.Freeze();
         mesh.Freeze();
         return mesh;
     }
