@@ -31,6 +31,7 @@ public partial class MainWindow : Window
         BuildGlobe();
         StartGlobeNetworkShuffle();
         StartRadar();
+        Closed += (_, _) => _networkShuffleTimer?.Stop();
         SetLanguage(false);
     }
 
