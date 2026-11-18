@@ -97,8 +97,14 @@ public sealed class WorldMapView : FrameworkElement
         base.OnRender(dc);
         double w = ActualWidth, h = ActualHeight;
         if (w <= 0 || h <= 0) return;
-        double top = h * .035, mapHeight = h * .45;
-        dc.PushTransform(new MatrixTransform(new Matrix(w, 0, 0, mapHeight, 0, top)));
+        // Keep the Mercator world map at a stable 2:1 aspect ratio.
+        // Fit it inside the available panel and center it instead of stretching
+        // the geographic paths to the full width and height independently.
+        double mapWidth = Math.Min(w * .96, h * .90 * 2.0);
+        double mapHeight = mapWidth / 2.0;
+        double left = (w - mapWidth) / 2.0;
+        double top = (h - mapHeight) / 2.0;
+        dc.PushTransform(new MatrixTransform(new Matrix(mapWidth, 0, 0, mapHeight, left, top)));
 
         var gridPen = new Pen(new SolidColorBrush(Color.FromArgb(8, 230, 215, 122)), .0008);
         for (int i=1;i<=5;i++) dc.DrawLine(gridPen,new Point(.035,i/6.0),new Point(.965,i/6.0));
