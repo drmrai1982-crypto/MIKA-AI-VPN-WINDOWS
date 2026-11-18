@@ -49,15 +49,16 @@ public partial class MainWindow : Window
         var material = new MaterialGroup();
         material.Children.Add(new DiffuseMaterial(new ImageBrush(image) { Stretch = Stretch.Fill }));
         material.Children.Add(new EmissiveMaterial(new SolidColorBrush(Color.FromArgb(18, 38, 52, 68))));
-        var sphere = new GeometryModel3D(mesh, material) { BackMaterial = material };
         var spin = new AxisAngleRotation3D(new Vector3D(0, 1, 0), 0);
-        sphere.Transform = new RotateTransform3D(spin);
+        var globeTransform = new RotateTransform3D(spin);
+        var sphere = new GeometryModel3D(mesh, material) { BackMaterial = material, Transform = globeTransform };
 
         var scene = new Model3DGroup();
         scene.Children.Add(new AmbientLight(Color.FromRgb(190, 195, 205)));
         scene.Children.Add(new DirectionalLight(Color.FromRgb(255, 250, 238), new Vector3D(-0.4, -0.2, -1)));
         scene.Children.Add(new DirectionalLight(Color.FromRgb(100, 168, 235), new Vector3D(0.7, 0.1, 0.6)));
         scene.Children.Add(sphere);
+        scene.Children.Add(BuildGlobeNetwork(globeTransform));
         GlobeViewport.Camera = new PerspectiveCamera(new Point3D(0, 0, 3.15), new Vector3D(0, 0, -3.15), new Vector3D(0, 1, 0), 38);
         GlobeViewport.Children.Add(new ModelVisual3D { Content = scene });
         spin.BeginAnimation(AxisAngleRotation3D.AngleProperty, new DoubleAnimation(0, 360, TimeSpan.FromSeconds(72)) { RepeatBehavior = RepeatBehavior.Forever });
@@ -107,101 +108,143 @@ public partial class MainWindow : Window
             new DoubleAnimation(0, 360, TimeSpan.FromSeconds(7.5))
             { RepeatBehavior = RepeatBehavior.Forever });
 
-        RefreshRadarNetwork();
     }
 
-    private void RefreshRadarNetwork()
+    // Seven geographic stations on the globe. The graph is deterministic and
+    // 4-regular: 14 unique surface arcs, exactly four connections per station.
+    private Model3DGroup BuildGlobeNetwork(Transform3D sharedRotation)
     {
-        const int pointCount = 7;
-        const double center = 110;
-        // Irregularly distributed telemetry stations: deliberately not arranged
-        // on a circle, so the display cannot form a decorative polygon.
-        Point[] points =
+        Point3D[] stations =
         {
-            new(91, 34), new(158, 51), new(181, 116),
-            new(143, 174), new(61, 157), new(35, 91), new(103, 104)
+            GeoPoint(18, -132), GeoPoint(42, -54), GeoPoint(8, 12),
+            GeoPoint(36, 78), GeoPoint(-22, 142), GeoPoint(-48, -8),
+            GeoPoint(-12, 54)
         };
+        int[] permutation = { 0, 3, 1, 5, 2, 6, 4 };
+        var edges = new HashSet<(int A, int B)>();
+        for (int i = 0; i < 7; i++)
+            foreach (int offset in new[] { 1, 2 })
+            {
+                int a = permutation[i], b = permutation[(i + offset) % 7];
+                edges.Add((Math.Min(a, b), Math.Max(a, b)));
+            }
 
-        RadarNodesCanvas.Children.Clear();
         Color signal = _radarConnected
-            ? Color.FromRgb(50, 235, 153)
-            : Color.FromRgb(255, 72, 105);
+            ? Color.FromRgb(48, 218, 145)
+            : Color.FromRgb(245, 76, 101);
+        var lineBrush = new SolidColorBrush(Color.FromArgb(205, signal.R, signal.G, signal.B));
+        lineBrush.Freeze();
+        var lineMaterial = new MaterialGroup();
+        lineMaterial.Children.Add(new DiffuseMaterial(lineBrush));
+        var glowBrush = new SolidColorBrush(Color.FromArgb(72, signal.R, signal.G, signal.B));
+        glowBrush.Freeze();
+        lineMaterial.Children.Add(new EmissiveMaterial(glowBrush));
 
-        // Each station selects its four nearest peers. Draw each physical link
-        // once; close links are brighter and longer links remain subtle.
-        var links = new HashSet<(int A, int B)>();
-        for (int i = 0; i < pointCount; i++)
+        var group = new Model3DGroup();
+        foreach (var edge in edges)
         {
-            var nearest = Enumerable.Range(0, pointCount)
-                .Where(j => j != i)
-                .OrderBy(j => DistanceSquared(points[i], points[j]))
-                .Take(4);
-            foreach (int j in nearest)
-                links.Add((Math.Min(i, j), Math.Max(i, j)));
+            var arc = CreateSurfaceArc(stations[edge.A], stations[edge.B], 1.009, 0.0021, 28, 6);
+            group.Children.Add(new GeometryModel3D(arc, lineMaterial) { BackMaterial = lineMaterial });
         }
 
-        foreach (var link in links)
+        var nodeMaterial = new MaterialGroup();
+        var coreBrush = new SolidColorBrush(Color.FromRgb(226, 246, 255));
+        var nodeGlow = new SolidColorBrush(Color.FromArgb(220, signal.R, signal.G, signal.B));
+        coreBrush.Freeze(); nodeGlow.Freeze();
+        nodeMaterial.Children.Add(new DiffuseMaterial(coreBrush));
+        nodeMaterial.Children.Add(new EmissiveMaterial(nodeGlow));
+        foreach (Point3D station in stations)
         {
-            Point a = points[link.A], b = points[link.B];
-            double distance = Math.Sqrt(DistanceSquared(a, b));
-            bool local = distance < 78;
-            byte alpha = local ? (byte)92 : (byte)28;
-            RadarNodesCanvas.Children.Add(new Line
-            {
-                X1 = a.X, Y1 = a.Y, X2 = b.X, Y2 = b.Y,
-                Stroke = new SolidColorBrush(Color.FromArgb(alpha, signal.R, signal.G, signal.B)),
-                StrokeThickness = local ? 1.05 : 0.7,
-                StrokeStartLineCap = PenLineCap.Round,
-                StrokeEndLineCap = PenLineCap.Round
-            });
+            var marker = CreateSphere(station, 0.014, 12, 8);
+            group.Children.Add(new GeometryModel3D(marker, nodeMaterial) { BackMaterial = nodeMaterial });
         }
 
-        // Small, restrained station markers with a soft halo; no oversized
-        // glowing vertices or heavy polygon outline.
-        foreach (Point point in points)
-        {
-            var halo = new Ellipse
-            {
-                Width = 15, Height = 15,
-                Fill = new RadialGradientBrush(new GradientStopCollection {
-                    new GradientStop(Color.FromArgb(72, signal.R, signal.G, signal.B), 0.0),
-                    new GradientStop(Color.FromArgb(22, signal.R, signal.G, signal.B), 0.58),
-                    new GradientStop(Color.FromArgb(0, signal.R, signal.G, signal.B), 1.0)
-                })
-            };
-            Canvas.SetLeft(halo, point.X - 7.5);
-            Canvas.SetTop(halo, point.Y - 7.5);
-            RadarNodesCanvas.Children.Add(halo);
-
-            var node = new Ellipse
-            {
-                Width = 5, Height = 5,
-                Fill = new SolidColorBrush(Color.FromRgb(230, 246, 252)),
-                Stroke = new SolidColorBrush(Color.FromArgb(210, signal.R, signal.G, signal.B)),
-                StrokeThickness = 1,
-                Effect = new DropShadowEffect
-                {
-                    Color = signal, BlurRadius = 7, ShadowDepth = 0, Opacity = 0.55
-                }
-            };
-            Canvas.SetLeft(node, point.X - 2.5);
-            Canvas.SetTop(node, point.Y - 2.5);
-            RadarNodesCanvas.Children.Add(node);
-        }
+        group.Transform = sharedRotation;
+        return group;
     }
 
-    private static double DistanceSquared(Point a, Point b)
+    private static Point3D GeoPoint(double latitudeDegrees, double longitudeDegrees)
     {
-        double dx = a.X - b.X, dy = a.Y - b.Y;
-        return dx * dx + dy * dy;
+        double latitude = latitudeDegrees * Math.PI / 180.0;
+        double longitude = longitudeDegrees * Math.PI / 180.0;
+        return new Point3D(Math.Cos(latitude) * Math.Sin(longitude),
+            Math.Sin(latitude), Math.Cos(latitude) * Math.Cos(longitude));
     }
 
-    // Call only after the real tunnel controller confirms an established VPN session.
-    private void UpdateRadarState(bool connected)
+    private static MeshGeometry3D CreateSurfaceArc(Point3D start, Point3D end,
+        double surfaceRadius, double tubeRadius, int segments, int sides)
     {
-        _radarConnected = connected;
-        RefreshRadarNetwork();
+        Vector3D a = new(start.X, start.Y, start.Z);
+        Vector3D b = new(end.X, end.Y, end.Z);
+        a.Normalize(); b.Normalize();
+        double dot = Math.Clamp(Vector3D.DotProduct(a, b), -0.9999, 0.9999);
+        double angle = Math.Acos(dot);
+        var mesh = new MeshGeometry3D();
+
+        for (int i = 0; i <= segments; i++)
+        {
+            double t = (double)i / segments;
+            Vector3D radial = angle < 0.0001 ? a :
+                a * (Math.Sin((1 - t) * angle) / Math.Sin(angle)) +
+                b * (Math.Sin(t * angle) / Math.Sin(angle));
+            radial.Normalize();
+            Vector3D tangent = b - a * dot;
+            if (tangent.LengthSquared < 1e-8) tangent = new Vector3D(0, 1, 0);
+            tangent.Normalize();
+            Vector3D side = Vector3D.CrossProduct(radial, tangent);
+            if (side.LengthSquared < 1e-8) side = Vector3D.CrossProduct(radial, new Vector3D(1, 0, 0));
+            side.Normalize();
+
+            for (int j = 0; j < sides; j++)
+            {
+                double around = 2 * Math.PI * j / sides;
+                Vector3D offset = side * (Math.Cos(around) * tubeRadius) +
+                                  radial * (Math.Sin(around) * tubeRadius);
+                mesh.Positions.Add(new Point3D(radial.X * surfaceRadius + offset.X,
+                    radial.Y * surfaceRadius + offset.Y, radial.Z * surfaceRadius + offset.Z));
+                mesh.Normals.Add(offset);
+            }
+        }
+
+        for (int i = 0; i < segments; i++)
+            for (int j = 0; j < sides; j++)
+            {
+                int current = i * sides + j, nextSide = i * sides + (j + 1) % sides;
+                int nextRing = (i + 1) * sides + j, nextRingSide = (i + 1) * sides + (j + 1) % sides;
+                mesh.TriangleIndices.Add(current); mesh.TriangleIndices.Add(nextRing); mesh.TriangleIndices.Add(nextSide);
+                mesh.TriangleIndices.Add(nextSide); mesh.TriangleIndices.Add(nextRing); mesh.TriangleIndices.Add(nextRingSide);
+            }
+        return mesh;
     }
+
+    private static MeshGeometry3D CreateSphere(Point3D center, double radius, int longitudeSteps, int latitudeSteps)
+    {
+        var mesh = new MeshGeometry3D();
+        for (int y = 0; y <= latitudeSteps; y++)
+        {
+            double latitude = Math.PI * (0.5 - (double)y / latitudeSteps);
+            for (int x = 0; x <= longitudeSteps; x++)
+            {
+                double longitude = 2 * Math.PI * x / longitudeSteps;
+                Vector3D normal = new(Math.Cos(latitude) * Math.Sin(longitude),
+                    Math.Sin(latitude), Math.Cos(latitude) * Math.Cos(longitude));
+                mesh.Positions.Add(new Point3D(center.X + normal.X * radius,
+                    center.Y + normal.Y * radius, center.Z + normal.Z * radius));
+                mesh.Normals.Add(normal);
+            }
+        }
+        for (int y = 0; y < latitudeSteps; y++)
+            for (int x = 0; x < longitudeSteps; x++)
+            {
+                int a = y * (longitudeSteps + 1) + x, b = a + longitudeSteps + 1;
+                mesh.TriangleIndices.Add(a); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(a + 1);
+                mesh.TriangleIndices.Add(a + 1); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(b + 1);
+            }
+        return mesh;
+    }
+
+    // This is only a visual state hook; call it after a real tunnel state change.
+    private void UpdateRadarState(bool connected) => _radarConnected = connected;
 
     private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
