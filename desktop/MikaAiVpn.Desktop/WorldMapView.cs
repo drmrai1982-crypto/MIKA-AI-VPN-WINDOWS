@@ -98,8 +98,7 @@ public sealed class WorldMapView : FrameworkElement
         double w = ActualWidth, h = ActualHeight;
         if (w <= 0 || h <= 0) return;
         double top = h * .035, mapHeight = h * .45;
-        dc.PushTransform(new TranslateTransform(0, top));
-        dc.PushTransform(new ScaleTransform(w, mapHeight));
+        dc.PushTransform(new MatrixTransform(new Matrix(w, 0, 0, mapHeight, 0, top)));
 
         var gridPen = new Pen(new SolidColorBrush(Color.FromArgb(8, 230, 215, 122)), .0008);
         for (int i=1;i<=5;i++) dc.DrawLine(gridPen,new Point(.035,i/6.0),new Point(.965,i/6.0));
@@ -122,7 +121,7 @@ public sealed class WorldMapView : FrameworkElement
                 using(var c=geometry.Open()){c.BeginFigure(new Point(a.X,a.Y),false,false);c.QuadraticBezierTo(new Point(cx,cy),new Point(b.X,b.Y),true,false);}
                 geometry.Freeze();
                 bool active=(i-_batchStart+Nodes.Length)%Nodes.Length<7;
-                var routePen=new Pen(new SolidColorBrush(active?_signal:Color.FromArgb(13,230,215,122)),active?.0016:.0008);
+                var routePen=new Pen(new SolidColorBrush(active?_signal:Color.FromArgb(13,230,215,122)),active ? .0016 : .0008);
                 dc.DrawGeometry(null,routePen,geometry);
             }
         }
@@ -130,10 +129,10 @@ public sealed class WorldMapView : FrameworkElement
         {
             var p=Nodes[i]; bool active=(i-_batchStart+Nodes.Length)%Nodes.Length<7;
             var color=active?_signal:Color.FromRgb(176,164,105);
-            dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(active?(byte)38:(byte)105,color.R,color.G,color.B)),null,new Point(p.X,p.Y),active?.005:.0027,active?.011:.006);
-            dc.DrawEllipse(new SolidColorBrush(color),null,new Point(p.X,p.Y),active?.0028:.0015,active?.006:.003);
+            dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(active?(byte)38:(byte)105,color.R,color.G,color.B)),null,new Point(p.X,p.Y),active ? .005 : .0027,active ? .011 : .006);
+            dc.DrawEllipse(new SolidColorBrush(color),null,new Point(p.X,p.Y),active ? .0028 : .0015,active ? .006 : .003);
         }
-        dc.Pop(); dc.Pop();
+        dc.Pop();
     }
 
     private static int ArrayIndex(int offset) => offset switch { 2=>0,5=>1,9=>2,_=>3 };
