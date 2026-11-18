@@ -36,6 +36,7 @@ public partial class MainWindow : Window
         };
 
         StartRadar();
+        UpdateRadarState(connected: false);
         SetLanguage(false);
     }
 
@@ -53,8 +54,8 @@ public partial class MainWindow : Window
                 Y1 = center - Math.Cos(angle) * inner,
                 X2 = center + Math.Sin(angle) * outer,
                 Y2 = center - Math.Cos(angle) * outer,
-                Stroke = new SolidColorBrush(Color.FromArgb(i % 6 == 0 ? (byte)125 : (byte)42, 142, 190, 211)),
-                StrokeThickness = i % 6 == 0 ? 1.0 : 0.55
+                Stroke = new SolidColorBrush(Color.FromArgb(i % 6 == 0 ? (byte)205 : (byte)105, 178, 211, 230)),
+                StrokeThickness = i % 6 == 0 ? 1.35 : 0.85
             });
         }
 
@@ -124,7 +125,18 @@ public partial class MainWindow : Window
             : Color.FromRgb(255, 23, 68);
         WorldMap.SetConnectionColor(signal);
         if (_radarTargetBrush is not null) _radarTargetBrush.Color = signal;
-        if (_radarTargetGlowBrush is not null) _radarTargetGlowBrush.Color = Color.FromArgb(55, signal.R, signal.G, signal.B);
+        if (_radarTargetGlowBrush is not null) _radarTargetGlowBrush.Color = Color.FromArgb(75, signal.R, signal.G, signal.B);
+
+        // Keep the sweep core, its halo, and the radar targets on the same status hue.
+        RadarSweepGlowLine.Stroke = new SolidColorBrush(Color.FromArgb(178, signal.R, signal.G, signal.B));
+        RadarSweepCoreLine.Stroke = new SolidColorBrush(Color.FromArgb(245, signal.R, signal.G, signal.B));
+        RadarSweepCenter.Fill = new SolidColorBrush(Color.FromArgb(245, signal.R, signal.G, signal.B));
+        RadarSweepCenter.Stroke = new SolidColorBrush(Color.FromArgb(255, signal.R, signal.G, signal.B));
+        RadarGlowStop0.Color = Color.FromArgb(105, signal.R, signal.G, signal.B);
+        RadarGlowStop1.Color = Color.FromArgb(76, signal.R, signal.G, signal.B);
+        RadarGlowStop2.Color = Color.FromArgb(48, signal.R, signal.G, signal.B);
+        RadarGlowStop3.Color = Color.FromArgb(24, signal.R, signal.G, signal.B);
+        RadarGlowStop4.Color = Color.FromArgb(0, signal.R, signal.G, signal.B);
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
