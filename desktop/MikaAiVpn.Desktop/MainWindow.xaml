@@ -113,7 +113,8 @@
         <Ellipse.Effect><DropShadowEffect Color="#55DFFF" BlurRadius="16" ShadowDepth="0" Opacity="0.9"/></Ellipse.Effect>
        </Ellipse>
       </Canvas>
-      <!-- Connection nodes and links are rendered on the 3D globe, never on the radar. -->
+      <Canvas x:Name="RadarTargetsCanvas" Width="220" Height="220" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,42,18" IsHitTestVisible="False"/>
+      <!-- Radar returns stay on the radar; the separate seven-node network stays on the rotating 3D globe. -->
 
      </Grid>
      <StackPanel Grid.Row="2" HorizontalAlignment="Center" Margin="0,0,0,4">
