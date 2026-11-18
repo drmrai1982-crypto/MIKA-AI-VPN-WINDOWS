@@ -16,7 +16,10 @@ public partial class MainWindow : Window
     private bool _radarConnected;
     private SolidColorBrush? _networkLineBrush;
     private SolidColorBrush? _networkGlowBrush;
+    private SolidColorBrush? _networkNodeCoreBrush;
     private SolidColorBrush? _networkNodeGlowBrush;
+    private SolidColorBrush? _radarTargetBrush;
+    private SolidColorBrush? _radarTargetGlowBrush;
 
     public MainWindow()
     {
@@ -105,6 +108,44 @@ public partial class MainWindow : Window
             });
         }
 
+        // Seven independent radar returns, matching the Android radar's fixed targets.
+        // These are decorative radar echoes, not the seven globe network stations.
+        float[][] radarTargets =
+        {
+            new[] { -0.48f, -0.31f }, new[] { 0.19f, -0.57f },
+            new[] { 0.57f, -0.10f }, new[] { 0.35f, 0.43f },
+            new[] { -0.28f, 0.49f }, new[] { -0.63f, 0.12f },
+            new[] { 0.04f, 0.28f }
+        };
+        _radarTargetBrush = new SolidColorBrush(Color.FromRgb(245, 76, 101));
+        _radarTargetGlowBrush = new SolidColorBrush(Color.FromArgb(90, 245, 76, 101));
+        foreach (float[] target in radarTargets)
+        {
+            double x = center + target[0] * 91;
+            double y = center + target[1] * 91;
+            var glow = new Ellipse
+            {
+                Width = 13, Height = 13,
+                Fill = _radarTargetGlowBrush,
+                IsHitTestVisible = false
+            };
+            Canvas.SetLeft(glow, x - 6.5);
+            Canvas.SetTop(glow, y - 6.5);
+            RadarTargetsCanvas.Children.Add(glow);
+
+            var dot = new Ellipse
+            {
+                Width = 4.2, Height = 4.2,
+                Fill = _radarTargetBrush,
+                Stroke = new SolidColorBrush(Color.FromArgb(210, 255, 255, 255)),
+                StrokeThickness = 0.55,
+                IsHitTestVisible = false
+            };
+            Canvas.SetLeft(dot, x - 2.1);
+            Canvas.SetTop(dot, y - 2.1);
+            RadarTargetsCanvas.Children.Add(dot);
+        }
+
         var spin = new RotateTransform();
         RadarSweepCanvas.RenderTransform = spin;
         spin.BeginAnimation(RotateTransform.AngleProperty,
@@ -144,18 +185,21 @@ public partial class MainWindow : Window
         var group = new Model3DGroup();
         foreach (var edge in edges)
         {
-            var arc = CreateSurfaceArc(stations[edge.A], stations[edge.B], 1.009, 0.0021, 28, 6);
+            // A shallow great-circle arc rises visibly above the globe at its midpoint.
+            var arc = CreateSurfaceArc(stations[edge.A], stations[edge.B], 1.006, 0.0024, 36, 7);
             group.Children.Add(new GeometryModel3D(arc, lineMaterial) { BackMaterial = lineMaterial });
         }
 
         var nodeMaterial = new MaterialGroup();
-        var coreBrush = new SolidColorBrush(Color.FromRgb(226, 246, 255));
+        _networkNodeCoreBrush = new SolidColorBrush(Color.FromArgb(245, signal.R, signal.G, signal.B));
         _networkNodeGlowBrush = new SolidColorBrush(Color.FromArgb(220, signal.R, signal.G, signal.B));
-        nodeMaterial.Children.Add(new DiffuseMaterial(coreBrush));
+        nodeMaterial.Children.Add(new DiffuseMaterial(_networkNodeCoreBrush));
         nodeMaterial.Children.Add(new EmissiveMaterial(_networkNodeGlowBrush));
         foreach (Point3D station in stations)
         {
-            var marker = CreateSphere(station, 0.014, 12, 8);
+            // Lift the whole marker slightly clear of the textured surface.
+            var nodeCenter = new Point3D(station.X * 1.014, station.Y * 1.014, station.Z * 1.014);
+            var marker = CreateSphere(nodeCenter, 0.016, 14, 10);
             group.Children.Add(new GeometryModel3D(marker, nodeMaterial) { BackMaterial = nodeMaterial });
         }
 
@@ -200,8 +244,11 @@ public partial class MainWindow : Window
                 double around = 2 * Math.PI * j / sides;
                 Vector3D offset = side * (Math.Cos(around) * tubeRadius) +
                                   radial * (Math.Sin(around) * tubeRadius);
-                mesh.Positions.Add(new Point3D(radial.X * surfaceRadius + offset.X,
-                    radial.Y * surfaceRadius + offset.Y, radial.Z * surfaceRadius + offset.Z));
+                // Sinusoidal lift is zero at both endpoints and strongest at mid-span,
+                // giving each connection the raised orbital-arc profile used on Android.
+                double arcRadius = surfaceRadius + 0.085 * Math.Sin(Math.PI * t);
+                mesh.Positions.Add(new Point3D(radial.X * arcRadius + offset.X,
+                    radial.Y * arcRadius + offset.Y, radial.Z * arcRadius + offset.Z));
                 mesh.Normals.Add(offset);
             }
         }
@@ -244,13 +291,20 @@ public partial class MainWindow : Window
     }
 
     // This is only a visual state hook; call it after a real tunnel state change.
-    private void UpdateRadarState(bool connected)
+    private void UpdateRadarState(bool connected, bool connecting = false)
     {
+        // This visual hook must only be called from verified tunnel-state events.
+        // Connecting is blue, disconnected is red, and connected is green.
         _radarConnected = connected;
-        Color signal = connected ? Color.FromRgb(48, 218, 145) : Color.FromRgb(245, 76, 101);
+        Color signal = connected
+            ? Color.FromRgb(48, 218, 145)
+            : connecting ? Color.FromRgb(0, 170, 255) : Color.FromRgb(245, 76, 101);
         if (_networkLineBrush is not null) _networkLineBrush.Color = Color.FromArgb(205, signal.R, signal.G, signal.B);
         if (_networkGlowBrush is not null) _networkGlowBrush.Color = Color.FromArgb(72, signal.R, signal.G, signal.B);
+        if (_networkNodeCoreBrush is not null) _networkNodeCoreBrush.Color = Color.FromArgb(245, signal.R, signal.G, signal.B);
         if (_networkNodeGlowBrush is not null) _networkNodeGlowBrush.Color = Color.FromArgb(220, signal.R, signal.G, signal.B);
+        if (_radarTargetBrush is not null) _radarTargetBrush.Color = signal;
+        if (_radarTargetGlowBrush is not null) _radarTargetGlowBrush.Color = Color.FromArgb(90, signal.R, signal.G, signal.B);
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
