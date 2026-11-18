@@ -184,3 +184,240 @@ extern "C" __declspec(dllexport)
 uint32_t __cdecl mika_native_expected_abi() {
     return FCAE_ABI_VERSION;
 }
+
+
+// Stable, deliberately small snapshot ABI for the WPF host. The desktop app
+// never mirrors Rust struct layouts; this bridge copies only the fields it uses.
+struct MikaTelemetrySnapshot {
+    uint32_t struct_size;
+    uint32_t abi_version;
+    int32_t state;
+    int32_t backend;
+    int32_t active_mode;
+    uint32_t rtt_ms;
+    uint64_t rx_bytes_sec;
+    uint64_t tx_bytes_sec;
+    uint64_t total_rx;
+    uint64_t total_tx;
+    uint64_t uptime_secs;
+    wchar_t connected_peer[64];
+    wchar_t status_message[128];
+    wchar_t last_error[256];
+};
+
+namespace {
+bool g_session_initialized = false;
+
+std::string utf8_from_wide(const wchar_t* value) {
+    if (!value || !*value) return {};
+    const int needed = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value, -1, nullptr, 0, nullptr, nullptr);
+    if (needed <= 1) return {};
+    std::string result(static_cast<size_t>(needed), '\\0');
+    if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value, -1, result.data(), needed, nullptr, nullptr) == 0)
+        return {};
+    result.resize(static_cast<size_t>(needed - 1));
+    return result;
+}
+
+void copy_utf8_to_wide(wchar_t* out, size_t capacity, const char* value) {
+    if (!out || capacity == 0) return;
+    out[0] = L'\\0';
+    if (!value || !*value) return;
+    MultiByteToWideChar(CP_UTF8, 0, value, -1, out, static_cast<int>(capacity));
+}
+}
+
+extern "C" __declspec(dllexport)
+int32_t __cdecl mika_native_session_init(const wchar_t* ffi_directory,
+                                          wchar_t* message,
+                                          uint32_t message_capacity) {
+    const int32_t probe = mika_native_probe(ffi_directory, message, message_capacity);
+    if (probe != 0) return probe;
+    using InitFn = FcaeStatus (__cdecl*)(const FcaeInitOptions*);
+    auto init = reinterpret_cast<InitFn>(symbol("fcae_init"));
+    FcaeInitOptions options{};
+    options.struct_size = sizeof(options);
+    options.abi_version = FCAE_ABI_VERSION;
+    options.max_log_level = FCAE_LOG_WARN;
+    const FcaeStatus status = init(&options);
+    if (status != FCAE_OK) {
+        using LastErrorFn = const char* (__cdecl*)();
+        auto last_error = reinterpret_cast<LastErrorFn>(symbol("fcae_last_error"));
+        wchar_t text[512]{};
+        const char* error = last_error ? last_error() : "no error text";
+        swprintf_s(text, L"FCAE initialization failed (status=%d): %S",
+                   static_cast<int>(status), error ? error : "no error text");
+        write_message(message, message_capacity, text);
+        return static_cast<int32_t>(status);
+    }
+    g_session_initialized = true;
+    write_message(message, message_capacity, L"FCAE session runtime initialized.");
+    return 0;
+}
+
+extern "C" __declspec(dllexport)
+int32_t __cdecl mika_native_session_start(const wchar_t* data_directory,
+                                           uint64_t tun_engine,
+                                           uint32_t protocol,
+                                           wchar_t* message,
+                                           uint32_t message_capacity) {
+    if (!g_session_initialized) {
+        write_message(message, message_capacity, L"Native session is not initialized.");
+        return FCAE_NOT_INITIALIZED;
+    }
+    using BackendCountFn = uint32_t (__cdecl*)();
+    using BackendInfoFn = FcaeStatus (__cdecl*)(uint32_t, FcaeBackendInfo*);
+    using TunInfoFn = FcaeStatus (__cdecl*)(uint32_t, FcaeTunEngineInfo*);
+    using ConfigDefaultFn = FcaeStatus (__cdecl*)(FcaeConfig*);
+    using StartFn = FcaeStatus (__cdecl*)(const FcaeConfig*);
+    using LastErrorFn = const char* (__cdecl*)();
+    using PrivilegedFn = bool (__cdecl*)();
+
+    auto backend_count = reinterpret_cast<BackendCountFn>(symbol("fcae_backend_count"));
+    auto backend_info = reinterpret_cast<BackendInfoFn>(symbol("fcae_backend_info"));
+    auto tun_info = reinterpret_cast<TunInfoFn>(symbol("fcae_tun_engine_info"));
+    auto config_default = reinterpret_cast<ConfigDefaultFn>(symbol("fcae_config_default"));
+    auto start = reinterpret_cast<StartFn>(symbol("fcae_start"));
+    auto last_error = reinterpret_cast<LastErrorFn>(symbol("fcae_last_error"));
+    auto is_privileged = reinterpret_cast<PrivilegedFn>(symbol("fcae_is_privileged"));
+
+    bool aether_available = false;
+    for (uint32_t i = 0; i < backend_count(); ++i) {
+        FcaeBackendInfo info{};
+        info.struct_size = sizeof(info);
+        info.abi_version = FCAE_ABI_VERSION;
+        if (backend_info(i, &info) == FCAE_OK && info.backend == FCAE_BACKEND_AETHER) {
+            aether_available = info.available;
+            if (!info.available) {
+                wchar_t reason[256]{};
+                swprintf_s(reason, L"Aether backend unavailable: %S", info.unavailable_reason);
+                write_message(message, message_capacity, reason);
+                return FCAE_BACKEND_UNAVAILABLE;
+            }
+            break;
+        }
+    }
+    if (!aether_available) {
+        write_message(message, message_capacity, L"Aether backend is not registered in this runtime.");
+        return FCAE_BACKEND_UNAVAILABLE;
+    }
+
+    FcaeTunEngineInfo engine{};
+    engine.struct_size = sizeof(engine);
+    engine.abi_version = FCAE_ABI_VERSION;
+    if (tun_info(static_cast<uint32_t>(tun_engine == FCAE_TUN_ENGINE_TUN2SOCKS ? 0 :
+                                      tun_engine == FCAE_TUN_ENGINE_ZEPTUN ? 1 : 2), &engine) != FCAE_OK ||
+        !engine.available || engine.engine != tun_engine) {
+        wchar_t reason[320]{};
+        swprintf_s(reason, L"TUN engine unavailable: %S", engine.unavailable_reason);
+        write_message(message, message_capacity, reason);
+        return FCAE_BACKEND_UNAVAILABLE;
+    }
+
+    if (is_privileged && !is_privileged()) {
+        write_message(message, message_capacity, L"Administrator privileges are required to create the Windows TUN interface.");
+        return FCAE_PERMISSION_DENIED;
+    }
+
+    FcaeConfig config{};
+    const FcaeStatus defaults_status = config_default(&config);
+    if (defaults_status != FCAE_OK) {
+        write_message(message, message_capacity, L"Could not create the default FCAE configuration.");
+        return static_cast<int32_t>(defaults_status);
+    }
+    const std::string data_dir = utf8_from_wide(data_directory);
+    config.backend = FCAE_BACKEND_AETHER;
+    config.protocol = static_cast<FcaeProtocol>(protocol);
+    config.mode = FCAE_MODE_TUN;
+    config.tun_engine = tun_engine;
+    config.data_dir = data_dir.empty() ? nullptr : data_dir.c_str();
+
+    const FcaeStatus status = start(&config);
+    if (status != FCAE_OK) {
+        wchar_t text[768]{};
+        const char* error = last_error ? last_error() : "no error text";
+        swprintf_s(text, L"VPN start request failed (status=%d): %S",
+                   static_cast<int>(status), error ? error : "no error text");
+        write_message(message, message_capacity, text);
+        return static_cast<int32_t>(status);
+    }
+    write_message(message, message_capacity, L"VPN start request accepted. Waiting for native tunnel state.");
+    return 0;
+}
+
+extern "C" __declspec(dllexport)
+int32_t __cdecl mika_native_session_stop(wchar_t* message, uint32_t message_capacity) {
+    if (!g_session_initialized) {
+        write_message(message, message_capacity, L"Native session is not initialized.");
+        return FCAE_NOT_INITIALIZED;
+    }
+    using StopFn = FcaeStatus (__cdecl*)();
+    using LastErrorFn = const char* (__cdecl*)();
+    auto stop = reinterpret_cast<StopFn>(symbol("fcae_stop"));
+    auto last_error = reinterpret_cast<LastErrorFn>(symbol("fcae_last_error"));
+    const FcaeStatus status = stop();
+    if (status != FCAE_OK) {
+        wchar_t text[512]{};
+        const char* error = last_error ? last_error() : "no error text";
+        swprintf_s(text, L"VPN stop request failed (status=%d): %S",
+                   static_cast<int>(status), error ? error : "no error text");
+        write_message(message, message_capacity, text);
+        return static_cast<int32_t>(status);
+    }
+    write_message(message, message_capacity, L"VPN stop requested; native cleanup is in progress.");
+    return 0;
+}
+
+extern "C" __declspec(dllexport)
+int32_t __cdecl mika_native_session_telemetry(MikaTelemetrySnapshot* out) {
+    if (!out || out->struct_size != sizeof(MikaTelemetrySnapshot) || out->abi_version != FCAE_ABI_VERSION)
+        return FCAE_ABI_MISMATCH;
+    if (!g_session_initialized) return FCAE_NOT_INITIALIZED;
+    using TelemetryFn = FcaeStatus (__cdecl*)(FcaeTelemetry*);
+    auto get_telemetry = reinterpret_cast<TelemetryFn>(symbol("fcae_get_telemetry"));
+    FcaeTelemetry telemetry{};
+    telemetry.struct_size = sizeof(telemetry);
+    telemetry.abi_version = FCAE_ABI_VERSION;
+    const FcaeStatus status = get_telemetry(&telemetry);
+    if (status != FCAE_OK) return static_cast<int32_t>(status);
+    out->state = static_cast<int32_t>(telemetry.state);
+    out->backend = static_cast<int32_t>(telemetry.backend);
+    out->active_mode = static_cast<int32_t>(telemetry.active_mode);
+    out->rtt_ms = telemetry.rtt_ms;
+    out->rx_bytes_sec = telemetry.rx_bytes_sec;
+    out->tx_bytes_sec = telemetry.tx_bytes_sec;
+    out->total_rx = telemetry.total_rx;
+    out->total_tx = telemetry.total_tx;
+    out->uptime_secs = telemetry.uptime_secs;
+    copy_utf8_to_wide(out->connected_peer, _countof(out->connected_peer), telemetry.connected_peer);
+    copy_utf8_to_wide(out->status_message, _countof(out->status_message), telemetry.status_message);
+    copy_utf8_to_wide(out->last_error, _countof(out->last_error), telemetry.last_error);
+    return 0;
+}
+
+extern "C" __declspec(dllexport)
+int32_t __cdecl mika_native_session_shutdown(wchar_t* message, uint32_t message_capacity) {
+    if (!g_session_initialized) {
+        write_message(message, message_capacity, L"Native session is not initialized.");
+        return 0;
+    }
+    using RunningFn = bool (__cdecl*)();
+    using StopFn = FcaeStatus (__cdecl*)();
+    using ShutdownFn = FcaeStatus (__cdecl*)();
+    auto running = reinterpret_cast<RunningFn>(symbol("fcae_is_running"));
+    auto stop = reinterpret_cast<StopFn>(symbol("fcae_stop"));
+    auto shutdown = reinterpret_cast<ShutdownFn>(symbol("fcae_shutdown"));
+    if (running && running()) {
+        const FcaeStatus stop_status = stop();
+        if (stop_status != FCAE_OK) {
+            write_message(message, message_capacity, L"Could not stop the active session before shutdown.");
+            return static_cast<int32_t>(stop_status);
+        }
+    }
+    const FcaeStatus status = shutdown();
+    g_session_initialized = false;
+    write_message(message, message_capacity, status == FCAE_OK
+        ? L"Native runtime shut down cleanly."
+        : L"Native runtime shutdown reported an error.");
+    return static_cast<int32_t>(status);
+}
