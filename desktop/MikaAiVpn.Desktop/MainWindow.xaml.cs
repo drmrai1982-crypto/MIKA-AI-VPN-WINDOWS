@@ -84,7 +84,7 @@ public partial class MainWindow : Window
             RadarTargetsCanvas.Children.Add(dot);
         }
 
-        _radarRotation = new RotateTransform(0, 110, 110);
+        _radarRotation = new RotateTransform(0);
         RadarSweepCanvas.RenderTransformOrigin = new Point(0.5, 0.5);
         RadarSweepCanvas.RenderTransform = _radarRotation;
     }
