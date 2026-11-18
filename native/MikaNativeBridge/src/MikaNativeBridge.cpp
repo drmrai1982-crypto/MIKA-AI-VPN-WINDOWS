@@ -63,6 +63,8 @@ int32_t __cdecl mika_native_probe(const wchar_t* ffi_directory,
         "fcae_backend_info",
         "fcae_tun_engine_count",
         "fcae_tun_engine_info",
+        "fcae_is_privileged",
+        "fcae_is_running",
         "fcae_shutdown"
     };
     for (const char* name : required) {
