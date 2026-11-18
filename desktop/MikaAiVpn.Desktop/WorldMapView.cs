@@ -112,34 +112,23 @@ public sealed class WorldMapView : FrameworkElement
         double top = (h - mapHeight) / 2.0;
         dc.PushTransform(new MatrixTransform(new Matrix(mapWidth, 0, 0, mapHeight, left, top)));
 
-        // Subtle ocean illumination and latitude/longitude graticule.
-        var ocean = new LinearGradientBrush(
-            Color.FromArgb(0, 20, 190, 190),
-            Color.FromArgb(24, 16, 120, 150), 90);
+        // Agreed Android palette: deep navy ocean and restrained warm-gold graticule.
+        var ocean = new SolidColorBrush(Color.FromRgb(0x17, 0x2B, 0x49));
         dc.DrawRoundedRectangle(ocean, null, new Rect(.012, .035, .976, .93), .025, .025);
 
-        var gridPen = new Pen(new SolidColorBrush(Color.FromArgb(24, 70, 190, 190)), .00075);
+        var gridPen = new Pen(new SolidColorBrush(Color.FromArgb(22, 0xE6, 0xD7, 0x7A)), .00065);
         for (int i = 1; i <= 5; i++)
             dc.DrawLine(gridPen, new Point(.025, i / 6.0), new Point(.975, i / 6.0));
         for (int i = 1; i <= 11; i++)
             dc.DrawLine(gridPen, new Point(i / 12.0, .02), new Point(i / 12.0, .98));
 
-        // Raised-looking land: dark lower edge, turquoise shaded body, bright coast.
-        var landShade = new SolidColorBrush(Color.FromArgb(105, 0, 12, 24));
-        var landFill = new LinearGradientBrush
-        {
-            StartPoint = new Point(.5, 0),
-            EndPoint = new Point(.5, 1),
-            MappingMode = BrushMappingMode.RelativeToBoundingBox
-        };
-        landFill.GradientStops.Add(new GradientStop(Color.FromArgb(220, 55, 170, 158), 0));
-        landFill.GradientStops.Add(new GradientStop(Color.FromArgb(220, 25, 112, 125), .48));
-        landFill.GradientStops.Add(new GradientStop(Color.FromArgb(235, 10, 58, 78), 1));
-        var coast = new Pen(new SolidColorBrush(Color.FromArgb(220, 102, 235, 213)), .00145);
-        var coastHighlight = new Pen(new SolidColorBrush(Color.FromArgb(85, 205, 255, 239)), .00065);
+        // Flat 2D warm cream-gold land, matching the agreed Android map palette.
+        // Keep the fill calm and readable; network colors remain independent.
+        var landFill = new SolidColorBrush(Color.FromRgb(0xE6, 0xD7, 0x7A));
+        var coast = new Pen(new SolidColorBrush(Color.FromRgb(0xF3, 0xE8, 0xA8)), .00125);
+        var coastHighlight = new Pen(new SolidColorBrush(Color.FromArgb(95, 0xFF, 0xF2, 0xC2)), .00055);
         foreach (var country in _countries)
         {
-            dc.DrawGeometry(landShade, null, country);
             dc.DrawGeometry(landFill, coast, country);
             dc.DrawGeometry(null, coastHighlight, country);
         }
