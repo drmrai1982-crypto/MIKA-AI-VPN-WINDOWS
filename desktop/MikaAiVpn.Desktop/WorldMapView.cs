@@ -9,8 +9,8 @@ using System.Windows.Threading;
 namespace MikaAiVpn.Desktop;
 
 /// <summary>
-/// Lightweight 2D Natural Earth map and animated network overlay.
-/// Decorative only; it never reads or controls VPN tunnel state.
+/// Offline Natural Earth world map with a lightweight dimensional treatment
+/// and animated network overlay. Decorative only; it never controls VPN state.
 /// </summary>
 public sealed class WorldMapView : FrameworkElement
 {
@@ -55,7 +55,10 @@ public sealed class WorldMapView : FrameworkElement
                     foreach (var polygon in coordinates.EnumerateArray()) AddPolygon(polygon);
             }
         }
-        catch (Exception) { _countries.Clear(); }
+        catch (Exception)
+        {
+            _countries.Clear();
+        }
     }
 
     private void AddPolygon(JsonElement rings)
@@ -78,7 +81,11 @@ public sealed class WorldMapView : FrameworkElement
                     double radians = lat * Math.PI / 180.0;
                     double py = 0.5 - Math.Log(Math.Tan(Math.PI / 4.0 + radians / 2.0)) / (2.0 * Math.PI);
                     var point = new Point(px, Math.Clamp(py, 0, 1));
-                    if (!begun || Math.Abs(lon - previousLon) > 180.0) { context.BeginFigure(point, true, true); begun = true; }
+                    if (!begun || Math.Abs(lon - previousLon) > 180.0)
+                    {
+                        context.BeginFigure(point, true, true);
+                        begun = true;
+                    }
                     else context.LineTo(point, true, false);
                     previousLon = lon;
                 }
@@ -97,49 +104,84 @@ public sealed class WorldMapView : FrameworkElement
         base.OnRender(dc);
         double w = ActualWidth, h = ActualHeight;
         if (w <= 0 || h <= 0) return;
-        // Keep the Mercator world map at a stable 2:1 aspect ratio.
-        // Fit it inside the available panel and center it instead of stretching
-        // the geographic paths to the full width and height independently.
-        double mapWidth = Math.Min(w * .96, h * .90 * 2.0);
+
+        // Stable 2:1 equirectangular map, centered without distorting geography.
+        double mapWidth = Math.Min(w * .98, h * .90 * 2.0);
         double mapHeight = mapWidth / 2.0;
         double left = (w - mapWidth) / 2.0;
         double top = (h - mapHeight) / 2.0;
         dc.PushTransform(new MatrixTransform(new Matrix(mapWidth, 0, 0, mapHeight, left, top)));
 
-        var gridPen = new Pen(new SolidColorBrush(Color.FromArgb(8, 230, 215, 122)), .0008);
-        for (int i=1;i<=5;i++) dc.DrawLine(gridPen,new Point(.035,i/6.0),new Point(.965,i/6.0));
-        for (int i=1;i<=9;i++) dc.DrawLine(gridPen,new Point(i/10.0,0),new Point(i/10.0,1));
+        // Subtle ocean illumination and latitude/longitude graticule.
+        var ocean = new LinearGradientBrush(
+            Color.FromArgb(0, 20, 190, 190),
+            Color.FromArgb(24, 16, 120, 150), 90);
+        dc.DrawRoundedRectangle(ocean, null, new Rect(.012, .035, .976, .93), .025, .025);
 
-        var fill = new SolidColorBrush(Color.FromArgb(12,230,215,122));
-        var border = new Pen(new SolidColorBrush(Color.FromArgb(178,230,215,122)), .0011);
-        fill.Freeze(); border.Brush.Freeze();
-        foreach (var country in _countries) dc.DrawGeometry(fill,border,country);
+        var gridPen = new Pen(new SolidColorBrush(Color.FromArgb(24, 70, 190, 190)), .00075);
+        for (int i = 1; i <= 5; i++)
+            dc.DrawLine(gridPen, new Point(.025, i / 6.0), new Point(.975, i / 6.0));
+        for (int i = 1; i <= 11; i++)
+            dc.DrawLine(gridPen, new Point(i / 12.0, .02), new Point(i / 12.0, .98));
 
-        for (int i=0;i<Nodes.Length;i++)
+        // Raised-looking land: dark lower edge, turquoise shaded body, bright coast.
+        var landShade = new SolidColorBrush(Color.FromArgb(105, 0, 12, 24));
+        var landFill = new LinearGradientBrush
+        {
+            StartPoint = new Point(.5, 0),
+            EndPoint = new Point(.5, 1),
+            MappingMode = BrushMappingMode.RelativeToBoundingBox
+        };
+        landFill.GradientStops.Add(new GradientStop(Color.FromArgb(220, 55, 170, 158), 0));
+        landFill.GradientStops.Add(new GradientStop(Color.FromArgb(220, 25, 112, 125), .48));
+        landFill.GradientStops.Add(new GradientStop(Color.FromArgb(235, 10, 58, 78), 1));
+        var coast = new Pen(new SolidColorBrush(Color.FromArgb(220, 102, 235, 213)), .00145);
+        var coastHighlight = new Pen(new SolidColorBrush(Color.FromArgb(85, 205, 255, 239)), .00065);
+        foreach (var country in _countries)
+        {
+            dc.DrawGeometry(landShade, null, country);
+            dc.DrawGeometry(landFill, coast, country);
+            dc.DrawGeometry(null, coastHighlight, country);
+        }
+
+        // Four curved routes per node. Seven nodes brighten each second.
+        for (int i = 0; i < Nodes.Length; i++)
         {
             foreach (int offset in LinkOffsets)
             {
-                var a=Nodes[i]; var b=Nodes[(i+offset)%Nodes.Length];
-                double cx=(a.X+b.X)/2.0;
-                double lift=.10 + ArrayIndex(offset)*.065;
-                double cy=Math.Min(a.Y,b.Y)-lift;
-                var geometry=new StreamGeometry();
-                using(var c=geometry.Open()){c.BeginFigure(new Point(a.X,a.Y),false,false);c.QuadraticBezierTo(new Point(cx,cy),new Point(b.X,b.Y),true,false);}
+                var a = Nodes[i];
+                var b = Nodes[(i + offset) % Nodes.Length];
+                double cx = (a.X + b.X) / 2.0;
+                double lift = .10 + ArrayIndex(offset) * .065;
+                double cy = Math.Min(a.Y, b.Y) - lift;
+                var geometry = new StreamGeometry();
+                using (var c = geometry.Open())
+                {
+                    c.BeginFigure(new Point(a.X, a.Y), false, false);
+                    c.QuadraticBezierTo(new Point(cx, cy), new Point(b.X, b.Y), true, false);
+                }
                 geometry.Freeze();
-                bool active=(i-_batchStart+Nodes.Length)%Nodes.Length<7;
-                var routePen=new Pen(new SolidColorBrush(active?_signal:Color.FromArgb(13,230,215,122)),active ? .0016 : .0008);
-                dc.DrawGeometry(null,routePen,geometry);
+                bool active = (i - _batchStart + Nodes.Length) % Nodes.Length < 7;
+                var routePen = new Pen(new SolidColorBrush(active
+                    ? Color.FromArgb(175, _signal.R, _signal.G, _signal.B)
+                    : Color.FromArgb(17, 115, 205, 190)), active ? .00135 : .00065);
+                dc.DrawGeometry(null, routePen, geometry);
             }
         }
-        for(int i=0;i<Nodes.Length;i++)
+
+        for (int i = 0; i < Nodes.Length; i++)
         {
-            var p=Nodes[i]; bool active=(i-_batchStart+Nodes.Length)%Nodes.Length<7;
-            var color=active?_signal:Color.FromRgb(176,164,105);
-            dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(active?(byte)38:(byte)105,color.R,color.G,color.B)),null,new Point(p.X,p.Y),active ? .005 : .0027,active ? .011 : .006);
-            dc.DrawEllipse(new SolidColorBrush(color),null,new Point(p.X,p.Y),active ? .0028 : .0015,active ? .006 : .003);
+            var p = Nodes[i];
+            bool active = (i - _batchStart + Nodes.Length) % Nodes.Length < 7;
+            var color = active ? _signal : Color.FromRgb(91, 196, 176);
+            dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(active ? (byte)65 : (byte)35, color.R, color.G, color.B)),
+                null, new Point(p.X, p.Y), active ? .007 : .004, active ? .014 : .008);
+            dc.DrawEllipse(new SolidColorBrush(color), null, new Point(p.X, p.Y),
+                active ? .0028 : .0017, active ? .0056 : .0034);
         }
+
         dc.Pop();
     }
 
-    private static int ArrayIndex(int offset) => offset switch { 2=>0,5=>1,9=>2,_=>3 };
+    private static int ArrayIndex(int offset) => offset switch { 2 => 0, 5 => 1, 9 => 2, _ => 3 };
 }
