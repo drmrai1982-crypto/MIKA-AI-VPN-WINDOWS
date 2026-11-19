@@ -80,7 +80,7 @@ internal static class NativeBridge
         return (result, message.ToString());
     }
 
-    public static (int Result, NativeTelemetry Telemetry) Telemetry()
+    public static (int Result, NativeTelemetry Telemetry, string Message) Telemetry()
     {
         var telemetry = new NativeTelemetry
         {
