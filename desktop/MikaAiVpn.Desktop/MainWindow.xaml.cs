@@ -319,6 +319,20 @@ public partial class MainWindow : Window
                 return;
             }
             var t = result.Telemetry;
+            string nativeState = t.State switch
+            {
+                0 => "DISCONNECTED",
+                1 => "PROVISIONING",
+                2 => "SCANNING",
+                3 => "CONNECTING",
+                4 => "CONNECTED",
+                5 => "ERROR",
+                6 => "RECONNECTING",
+                _ => "UNKNOWN"
+            };
+            string nativeDetail = !string.IsNullOrWhiteSpace(t.LastError) ? t.LastError :
+                !string.IsNullOrWhiteSpace(t.StatusMessage) ? t.StatusMessage : "No status/error text from FCAE.";
+            DiagnosticsText.Text = $"Native telemetry OK | state={t.State} ({nativeState}) | backend={t.Backend} | mode={t.ActiveMode} | uptime={t.UptimeSeconds}s | peer={t.ConnectedPeer} | detail={nativeDetail}";
             DownloadValue.Text = FormatRate(t.DownloadBytesPerSecond);
             UploadValue.Text = FormatRate(t.UploadBytesPerSecond);
             BackendValue.Text = t.Backend == 0 ? "Aether" : t.Backend == 1 ? "Psiphon" : "—";
@@ -336,6 +350,8 @@ public partial class MainWindow : Window
                 failed ? (_isPersian ? "خطای موتور VPN" : "VPN ENGINE ERROR") :
                 (_isPersian ? "VPN قطع است" : "VPN DISCONNECTED");
             string detail = !string.IsNullOrWhiteSpace(t.LastError) ? t.LastError : t.StatusMessage;
+            if (waitingForNativeStart && string.IsNullOrWhiteSpace(detail))
+                detail = "FCAE telemetry is responding, but the native state is still DISCONNECTED (state=0) after start was accepted.";
             ConnectionHint.Text = string.IsNullOrWhiteSpace(detail) ? " " : detail;
             if (t.State == 0 && _stopRequested)
             {
