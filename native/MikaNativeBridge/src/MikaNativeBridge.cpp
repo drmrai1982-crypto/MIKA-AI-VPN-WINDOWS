@@ -371,17 +371,34 @@ int32_t __cdecl mika_native_session_stop(wchar_t* message, uint32_t message_capa
 }
 
 extern "C" __declspec(dllexport)
-int32_t __cdecl mika_native_session_telemetry(MikaTelemetrySnapshot* out) {
-    if (!out || out->struct_size != sizeof(MikaTelemetrySnapshot) || out->abi_version != FCAE_ABI_VERSION)
+int32_t __cdecl mika_native_session_telemetry(MikaTelemetrySnapshot* out,
+                                                    wchar_t* message,
+                                                    uint32_t message_capacity) {
+    if (!out || out->struct_size != sizeof(MikaTelemetrySnapshot) || out->abi_version != FCAE_ABI_VERSION) {
+        write_message(message, message_capacity, L"Telemetry snapshot ABI or size mismatch.");
         return FCAE_ABI_MISMATCH;
-    if (!g_session_initialized) return FCAE_NOT_INITIALIZED;
+    }
+    if (!g_session_initialized) {
+        write_message(message, message_capacity, L"Native session is not initialized.");
+        return FCAE_NOT_INITIALIZED;
+    }
     using TelemetryFn = FcaeStatus (__cdecl*)(FcaeTelemetry*);
+    using LastErrorFn = const char* (__cdecl*)();
     auto get_telemetry = reinterpret_cast<TelemetryFn>(symbol("fcae_get_telemetry"));
+    auto last_error = reinterpret_cast<LastErrorFn>(symbol("fcae_last_error"));
     FcaeTelemetry telemetry{};
     telemetry.struct_size = sizeof(telemetry);
     telemetry.abi_version = FCAE_ABI_VERSION;
     const FcaeStatus status = get_telemetry(&telemetry);
-    if (status != FCAE_OK) return static_cast<int32_t>(status);
+    if (status != FCAE_OK) {
+        const char* error = last_error ? last_error() : "no native error detail";
+        wchar_t text[768]{};
+        swprintf_s(text, L"fcae_get_telemetry failed (status=%d): %S",
+                   static_cast<int>(status), error ? error : "no native error detail");
+        write_message(message, message_capacity, text);
+        return static_cast<int32_t>(status);
+    }
+    write_message(message, message_capacity, L"Native telemetry read successfully."); 
     out->state = static_cast<int32_t>(telemetry.state);
     out->backend = static_cast<int32_t>(telemetry.backend);
     out->active_mode = static_cast<int32_t>(telemetry.active_mode);
