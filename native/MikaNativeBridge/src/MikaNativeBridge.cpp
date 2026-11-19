@@ -214,7 +214,7 @@ std::string utf8_from_wide(const wchar_t* value) {
     if (!value || !*value) return {};
     const int needed = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value, -1, nullptr, 0, nullptr, nullptr);
     if (needed <= 1) return {};
-    std::string result(static_cast<size_t>(needed), '\\0');
+    std::string result(static_cast<size_t>(needed), '\0');
     if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value, -1, result.data(), needed, nullptr, nullptr) == 0)
         return {};
     result.resize(static_cast<size_t>(needed - 1));
@@ -223,7 +223,7 @@ std::string utf8_from_wide(const wchar_t* value) {
 
 void copy_utf8_to_wide(wchar_t* out, size_t capacity, const char* value) {
     if (!out || capacity == 0) return;
-    out[0] = L'\\0';
+    out[0] = L'\0';
     if (!value || !*value) return;
     MultiByteToWideChar(CP_UTF8, 0, value, -1, out, static_cast<int>(capacity));
 }
