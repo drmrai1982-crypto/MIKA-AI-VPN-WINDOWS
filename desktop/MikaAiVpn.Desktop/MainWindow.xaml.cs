@@ -307,7 +307,7 @@ public partial class MainWindow : Window
         try
         {
             await _nativeGate.WaitAsync();
-            (int Result, NativeTelemetry Telemetry) result;
+            (int Result, NativeTelemetry Telemetry, string Message) result;
             try { result = await Task.Run(() => NativeBridge.Telemetry()); }
             finally { _nativeGate.Release(); }
             if (result.Result != 0)
