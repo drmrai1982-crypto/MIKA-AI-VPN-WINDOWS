@@ -26,7 +26,7 @@ public partial class MainWindow : Window
     private bool _polling;
     private bool _closing;
     private bool _allowClose;
-    private readonly string _ffiDirectory = Path.Combine(AppContext.BaseDirectory, "hev-engine");
+    private readonly string _ffiDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "hev-engine");
     private readonly string _dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MIKA AI VPN");
 
     public MainWindow()
