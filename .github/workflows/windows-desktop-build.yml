@@ -31,7 +31,7 @@ jobs:
           $hevDir = Join-Path $env:RUNNER_TEMP "mika-hev"
           New-Item -ItemType Directory -Force -Path $nativeDir | Out-Null
 
-          gh run download 43919889136 --repo drmrai1982-crypto/MIKA-AI-VPN-WINDOWS --name mika-native-bridge-windows-x64 --dir $bridgeDir
+          gh run download 44425756918 --repo drmrai1982-crypto/MIKA-AI-VPN-WINDOWS --name mika-native-bridge-windows-x64 --dir $bridgeDir
           gh run download 43916105641 --repo drmrai1982-crypto/MIKA-AI-VPN-WINDOWS --name mika-hev-windows-x64 --dir $hevDir
 
           $bridgeDll = Join-Path $bridgeDir "MikaNativeBridge.dll"
