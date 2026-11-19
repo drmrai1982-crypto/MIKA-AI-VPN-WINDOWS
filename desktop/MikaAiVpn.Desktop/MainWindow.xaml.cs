@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _telemetryTimer = new(DispatcherPriority.Background);
     private bool _sessionInitialized;
     private bool _sessionStarted;
+    private bool _stopRequested;
     private bool _polling;
     private bool _closing;
     private bool _allowClose;
@@ -52,10 +53,10 @@ public partial class MainWindow : Window
         StartRadar();
         UpdateRadarState(connected: false);
         SetLanguage(false);
-        Loaded += async (_, _) =>
+        Loaded += (_, _) =>
         {
             if (Environment.GetCommandLineArgs().Any(a => string.Equals(a, "--connect", StringComparison.OrdinalIgnoreCase)))
-                await ConnectAsync();
+                ConnectButton_Click(this, new RoutedEventArgs());
         };
     }
 
@@ -278,6 +279,7 @@ public partial class MainWindow : Window
     {
         if (!_sessionInitialized) return;
         DisconnectButton.IsEnabled = false;
+        _stopRequested = true;
         try
         {
             await _nativeGate.WaitAsync();
@@ -310,7 +312,8 @@ public partial class MainWindow : Window
             BackendValue.Text = t.Backend == 0 ? "Aether" : t.Backend == 1 ? "Psiphon" : "—";
             TunValue.Text = "HEV";
             bool connected = t.State == 4;
-            bool connecting = t.State == 1 || t.State == 2 || t.State == 3 || t.State == 6;
+            bool waitingForNativeStart = _sessionStarted && t.State == 0 && !_stopRequested;
+            bool connecting = t.State == 1 || t.State == 2 || t.State == 3 || t.State == 6 || waitingForNativeStart;
             bool failed = t.State == 5;
             UpdateRadarState(connected, connecting);
             SessionValue.Text = connected ? (_isPersian ? "متصل" : "Connected") :
@@ -322,8 +325,23 @@ public partial class MainWindow : Window
                 (_isPersian ? "VPN قطع است" : "VPN DISCONNECTED");
             string detail = !string.IsNullOrWhiteSpace(t.LastError) ? t.LastError : t.StatusMessage;
             ConnectionHint.Text = string.IsNullOrWhiteSpace(detail) ? " " : detail;
-            if (t.State == 0) { _sessionStarted = false; ConnectButton.IsEnabled = true; DisconnectButton.IsEnabled = false; }
-            else { ConnectButton.IsEnabled = false; DisconnectButton.IsEnabled = true; }
+            if (t.State == 0 && _stopRequested)
+            {
+                _sessionStarted = false;
+                _stopRequested = false;
+                ConnectButton.IsEnabled = true;
+                DisconnectButton.IsEnabled = false;
+            }
+            else if (!_sessionStarted && t.State == 0)
+            {
+                ConnectButton.IsEnabled = true;
+                DisconnectButton.IsEnabled = false;
+            }
+            else
+            {
+                ConnectButton.IsEnabled = false;
+                DisconnectButton.IsEnabled = true;
+            }
         }
         catch (Exception ex) { DiagnosticsText.Text = ex.Message; }
         finally { _polling = false; }
@@ -360,6 +378,7 @@ public partial class MainWindow : Window
         catch { }
         _sessionInitialized = false;
         _sessionStarted = false;
+        _stopRequested = false;
         _allowClose = true;
         Close();
     }
