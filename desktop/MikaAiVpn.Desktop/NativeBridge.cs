@@ -44,7 +44,7 @@ internal static class NativeBridge
 
     [DllImport("MikaNativeBridge.dll", EntryPoint = "mika_native_session_telemetry",
         CallingConvention = CallingConvention.Cdecl)]
-    private static extern int ReadTelemetry(ref NativeTelemetry telemetry);
+    private static extern int ReadTelemetry(ref NativeTelemetry telemetry, StringBuilder message, uint messageCapacity);
 
     [DllImport("MikaNativeBridge.dll", EntryPoint = "mika_native_session_shutdown",
         CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
@@ -90,8 +90,9 @@ internal static class NativeBridge
             StatusMessage = string.Empty,
             LastError = string.Empty
         };
-        var result = ReadTelemetry(ref telemetry);
-        return (result, telemetry);
+        var message = NewMessage();
+        var result = ReadTelemetry(ref telemetry, message, (uint)message.Capacity);
+        return (result, telemetry, message.ToString());
     }
 
     public static (int Result, string Message) Shutdown()
