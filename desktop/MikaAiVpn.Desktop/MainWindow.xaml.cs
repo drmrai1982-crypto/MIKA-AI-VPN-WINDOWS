@@ -243,7 +243,7 @@ public partial class MainWindow : Window
                         {
                             Process.Start(new ProcessStartInfo(exe, "--connect") { UseShellExecute = true, Verb = "runas" });
                             _allowClose = true;
-                            Dispatcher.Invoke(Close);
+                            Close();
                             return;
                         }
                     }
@@ -271,7 +271,7 @@ public partial class MainWindow : Window
                 _sessionInitialized = false;
             }
         }
-        finally { DiagnosticsButton.IsEnabled = true; }
+        finally { DiagnosticsButton.IsEnabled = !_sessionInitialized; }
     }
 
     private async void DisconnectButton_Click(object sender, RoutedEventArgs e)
