@@ -2,7 +2,7 @@ name: Windows native bridge check
 
 on:
   push:
-    branches: [main]
+    branches: [main, "ui/radar-neon-node-network"]
     paths:
       - "native/MikaNativeBridge/**"
       - ".github/workflows/windows-native-bridge.yml"
@@ -23,13 +23,18 @@ jobs:
         with:
           arch: x64
 
-      - name: Build native diagnostic bridge
+      - name: Build native session bridge
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force -Path build/native | Out-Null
           cl /nologo /LD /EHsc /std:c++17 /W4 /WX /I native/MikaNativeBridge/include native/MikaNativeBridge/src/MikaNativeBridge.cpp /link /OUT:build/native/MikaNativeBridge.dll
           if (-not (Test-Path build/native/MikaNativeBridge.dll)) { throw 'Native bridge DLL was not produced.' }
+          $exports = dumpbin /exports build/native/MikaNativeBridge.dll
+          foreach ($symbol in @('mika_native_session_init','mika_native_session_start','mika_native_session_stop','mika_native_session_telemetry','mika_native_session_shutdown')) {
+            if (-not ($exports | Select-String -SimpleMatch $symbol)) { throw "Required session bridge export missing: $symbol" }
+            Write-Host "Verified export: $symbol"
+          }
 
       - name: Upload native bridge
         uses: actions/upload-artifact@v4
