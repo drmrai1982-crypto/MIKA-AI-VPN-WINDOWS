@@ -96,7 +96,11 @@
     <Border Style="{StaticResource PanelStyle}" Margin="0,0,0,14">
      <StackPanel>
       <TextBlock x:Name="SessionLabel" Text="SESSION" Style="{StaticResource SmallLabel}"/>
-      <TextBlock x:Name="SessionValue" Text="Not started" FontSize="20" Margin="0,7,0,16"/>
+      <TextBlock x:Name="SessionValue" Text="Not started" FontSize="20" Margin="0,7,0,12"/>
+      <Grid Margin="0,0,0,16"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
+       <Button x:Name="ConnectButton" Grid.Column="0" Content="Connect" Click="ConnectButton_Click" Background="#123D32" BorderBrush="#27A879" Foreground="#72F5BE"/>
+       <Button x:Name="DisconnectButton" Grid.Column="2" Content="Disconnect" Click="DisconnectButton_Click" IsEnabled="False" Background="#40202A" BorderBrush="#A43A4C" Foreground="#FF9AA9"/>
+      </Grid>
       <TextBlock x:Name="BackendLabel" Text="ACTIVE BACKEND" Style="{StaticResource SmallLabel}"/>
       <TextBlock x:Name="BackendValue" Text="Not available" FontSize="14" Margin="0,6,0,15"/>
       <TextBlock x:Name="TunLabel" Text="TUN ENGINE" Style="{StaticResource SmallLabel}"/>
@@ -107,8 +111,8 @@
      <StackPanel>
       <TextBlock x:Name="TrafficLabel" Text="NETWORK TRAFFIC" Style="{StaticResource SmallLabel}"/>
       <Grid Margin="0,13,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-       <StackPanel Grid.Column="0"><TextBlock x:Name="DownloadLabel" Text="↓ DOWNLOAD" Foreground="#4FE3C1" FontSize="10"/><TextBlock Text="—" FontSize="23" Margin="0,4,0,0"/></StackPanel>
-       <StackPanel Grid.Column="1"><TextBlock x:Name="UploadLabel" Text="↑ UPLOAD" Foreground="#9B8CFF" FontSize="10"/><TextBlock Text="—" FontSize="23" Margin="0,4,0,0"/></StackPanel>
+       <StackPanel Grid.Column="0"><TextBlock x:Name="DownloadLabel" Text="↓ DOWNLOAD" Foreground="#4FE3C1" FontSize="10"/><TextBlock x:Name="DownloadValue" Text="—" FontSize="23" Margin="0,4,0,0"/></StackPanel>
+       <StackPanel Grid.Column="1"><TextBlock x:Name="UploadLabel" Text="↑ UPLOAD" Foreground="#9B8CFF" FontSize="10"/><TextBlock x:Name="UploadValue" Text="—" FontSize="23" Margin="0,4,0,0"/></StackPanel>
       </Grid>
      </StackPanel>
     </Border>
