@@ -5,6 +5,7 @@ on:
     branches: [main, "ui/radar-neon-node-network"]
     paths:
       - "desktop/**"
+      - "native/MikaNativeBridge/**"
       - "scripts/**"
       - ".github/workflows/windows-desktop-build.yml"
   workflow_dispatch:
@@ -21,25 +22,35 @@ jobs:
       - name: Checkout Windows project
         uses: actions/checkout@v4
 
-      - name: Download native bridge and FCAE runtime
+      - name: Configure MSVC x64
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build current native bridge and download FCAE runtime
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $ErrorActionPreference = 'Stop'
           $nativeDir = "desktop/MikaAiVpn.Desktop/native-runtime"
           $bridgeDir = Join-Path $env:RUNNER_TEMP "mika-bridge"
           $hevDir = Join-Path $env:RUNNER_TEMP "mika-hev"
-          New-Item -ItemType Directory -Force -Path $nativeDir | Out-Null
+          New-Item -ItemType Directory -Force -Path $nativeDir, $bridgeDir | Out-Null
 
-          gh run download 44425756918 --repo drmrai1982-crypto/MIKA-AI-VPN-WINDOWS --name mika-native-bridge-windows-x64 --dir $bridgeDir
+          cl /nologo /LD /EHsc /std:c++17 /W4 /WX /I native/MikaNativeBridge/include native/MikaNativeBridge/src/MikaNativeBridge.cpp /link /OUT:"$bridgeDir/MikaNativeBridge.dll"
+          if (!(Test-Path (Join-Path $bridgeDir "MikaNativeBridge.dll"))) { throw "Native bridge build failed." }
+
+          $exports = dumpbin /exports (Join-Path $bridgeDir "MikaNativeBridge.dll")
+          foreach ($symbol in @('mika_native_session_init','mika_native_session_start','mika_native_session_stop','mika_native_session_telemetry','mika_native_session_shutdown')) {
+            if (-not ($exports | Select-String -SimpleMatch $symbol)) { throw "Required native bridge export missing: $symbol" }
+          }
+
           gh run download 43916105641 --repo drmrai1982-crypto/MIKA-AI-VPN-WINDOWS --name mika-hev-windows-x64 --dir $hevDir
-
-          $bridgeDll = Join-Path $bridgeDir "MikaNativeBridge.dll"
           $engineDir = Join-Path $hevDir "hev-engine"
-          if (!(Test-Path $bridgeDll)) { throw "Native bridge artifact is incomplete." }
           if (!(Test-Path (Join-Path $engineDir "fcae_ffi.dll"))) { throw "FCAE runtime artifact is incomplete." }
 
-          Copy-Item $bridgeDll $nativeDir -Force
+          Copy-Item (Join-Path $bridgeDir "MikaNativeBridge.dll") $nativeDir -Force
           Copy-Item $engineDir (Join-Path $nativeDir "hev-engine") -Recurse -Force
 
       - name: Install .NET 8 SDK
