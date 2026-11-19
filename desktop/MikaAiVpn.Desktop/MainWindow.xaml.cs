@@ -6,6 +6,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Controls;
 using System.Threading;
+using System.Diagnostics;
 
 namespace MikaAiVpn.Desktop;
 
@@ -21,6 +22,7 @@ public partial class MainWindow : Window
     private readonly SemaphoreSlim _nativeGate = new(1, 1);
     private readonly DispatcherTimer _telemetryTimer = new(DispatcherPriority.Background);
     private bool _sessionInitialized;
+    private bool _sessionStarted;
     private bool _polling;
     private bool _closing;
     private bool _allowClose;
@@ -199,7 +201,7 @@ public partial class MainWindow : Window
 
     private async void ConnectButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_sessionInitialized || _closing) return;
+        if (_sessionStarted || _closing) return;
         ConnectButton.IsEnabled = false;
         DiagnosticsButton.IsEnabled = false;
         UpdateRadarState(false, connecting: true);
@@ -212,13 +214,38 @@ public partial class MainWindow : Window
             await _nativeGate.WaitAsync();
             try
             {
-                var init = await Task.Run(() => NativeBridge.Initialize(_ffiDirectory));
-                DiagnosticsText.Text = init.Message;
-                if (init.Result != 0) throw new InvalidOperationException(init.Message);
-                _sessionInitialized = true;
+                if (!_sessionInitialized)
+                {
+                    var init = await Task.Run(() => NativeBridge.Initialize(_ffiDirectory));
+                    DiagnosticsText.Text = init.Message;
+                    if (init.Result != 0) throw new InvalidOperationException(init.Message);
+                    _sessionInitialized = true;
+                }
                 var start = await Task.Run(() => NativeBridge.Start(_dataDirectory, 2, 0));
                 DiagnosticsText.Text = start.Message;
+                if (start.Result == 7)
+                {
+                    await Task.Run(() => NativeBridge.Shutdown());
+                    _sessionInitialized = false;
+                    var choice = MessageBox.Show(
+                        _isPersian ? "برای ایجاد رابط TUN دسترسی مدیر لازم است. برنامه با درخواست UAC دوباره اجرا شود؟" :
+                        "Administrator permission is required for the VPN TUN interface. Restart with a UAC prompt?",
+                        "MIKA AI VPN", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (choice == MessageBoxResult.Yes)
+                    {
+                        var exe = Environment.ProcessPath;
+                        if (!string.IsNullOrWhiteSpace(exe))
+                        {
+                            Process.Start(new ProcessStartInfo(exe, "--connect") { UseShellExecute = true, Verb = "runas" });
+                            _allowClose = true;
+                            Dispatcher.Invoke(Close);
+                            return;
+                        }
+                    }
+                    throw new InvalidOperationException(start.Message);
+                }
                 if (start.Result != 0) throw new InvalidOperationException(start.Message);
+                _sessionStarted = true;
             }
             finally { _nativeGate.Release(); }
             DisconnectButton.IsEnabled = true;
@@ -290,7 +317,7 @@ public partial class MainWindow : Window
                 (_isPersian ? "VPN قطع است" : "VPN DISCONNECTED");
             string detail = !string.IsNullOrWhiteSpace(t.LastError) ? t.LastError : t.StatusMessage;
             ConnectionHint.Text = string.IsNullOrWhiteSpace(detail) ? " " : detail;
-            if (t.State == 0) { ConnectButton.IsEnabled = true; DisconnectButton.IsEnabled = false; }
+            if (t.State == 0) { _sessionStarted = false; ConnectButton.IsEnabled = true; DisconnectButton.IsEnabled = false; }
             else { ConnectButton.IsEnabled = false; DisconnectButton.IsEnabled = true; }
         }
         catch (Exception ex) { DiagnosticsText.Text = ex.Message; }
@@ -327,6 +354,7 @@ public partial class MainWindow : Window
         }
         catch { }
         _sessionInitialized = false;
+        _sessionStarted = false;
         _allowClose = true;
         Close();
     }
