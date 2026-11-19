@@ -52,6 +52,11 @@ public partial class MainWindow : Window
         StartRadar();
         UpdateRadarState(connected: false);
         SetLanguage(false);
+        Loaded += async (_, _) =>
+        {
+            if (Environment.GetCommandLineArgs().Any(a => string.Equals(a, "--connect", StringComparison.OrdinalIgnoreCase)))
+                await ConnectAsync();
+        };
     }
 
     private void StartRadar()
@@ -347,7 +352,7 @@ public partial class MainWindow : Window
             await _nativeGate.WaitAsync();
             try
             {
-                await Task.Run(() => NativeBridge.Stop());
+                if (_sessionStarted) await Task.Run(() => NativeBridge.Stop());
                 await Task.Run(() => NativeBridge.Shutdown());
             }
             finally { _nativeGate.Release(); }
