@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Controls;
+using System.Threading;
 
 namespace MikaAiVpn.Desktop;
 
@@ -17,6 +18,14 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _radarTimer = new(DispatcherPriority.Render);
     private double _radarAngle;
     private bool _animationsPaused = true;
+    private readonly SemaphoreSlim _nativeGate = new(1, 1);
+    private readonly DispatcherTimer _telemetryTimer = new(DispatcherPriority.Background);
+    private bool _sessionInitialized;
+    private bool _polling;
+    private bool _closing;
+    private bool _allowClose;
+    private readonly string _ffiDirectory = Path.Combine(AppContext.BaseDirectory, "hev-engine");
+    private readonly string _dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MIKA AI VPN");
 
     public MainWindow()
     {
@@ -26,6 +35,9 @@ public partial class MainWindow : Window
         Deactivated += (_, _) => UpdateAnimationState();
         Loaded += (_, _) => UpdateAnimationState();
         Closed += (_, _) => StopAnimations();
+        Closing += MainWindow_Closing;
+        _telemetryTimer.Interval = TimeSpan.FromSeconds(1);
+        _telemetryTimer.Tick += async (_, _) => await PollTelemetryAsync();
 
         _radarTimer.Interval = TimeSpan.FromMilliseconds(33);
         _radarTimer.Tick += (_, _) =>
@@ -184,6 +196,141 @@ public partial class MainWindow : Window
         finally { DiagnosticsButton.IsEnabled = true; }
     }
 
+
+    private async void ConnectButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_sessionInitialized || _closing) return;
+        ConnectButton.IsEnabled = false;
+        DiagnosticsButton.IsEnabled = false;
+        UpdateRadarState(false, connecting: true);
+        ConnectionState.Text = _isPersian ? "در حال آماده‌سازی اتصال..." : "PREPARING VPN SESSION...";
+        try
+        {
+            Directory.CreateDirectory(_dataDirectory);
+            if (!File.Exists(Path.Combine(_ffiDirectory, "fcae_ffi.dll")))
+                throw new FileNotFoundException("fcae_ffi.dll was not found in the runtime folder.");
+            await _nativeGate.WaitAsync();
+            try
+            {
+                var init = await Task.Run(() => NativeBridge.Initialize(_ffiDirectory));
+                DiagnosticsText.Text = init.Message;
+                if (init.Result != 0) throw new InvalidOperationException(init.Message);
+                _sessionInitialized = true;
+                var start = await Task.Run(() => NativeBridge.Start(_dataDirectory, 2, 0));
+                DiagnosticsText.Text = start.Message;
+                if (start.Result != 0) throw new InvalidOperationException(start.Message);
+            }
+            finally { _nativeGate.Release(); }
+            DisconnectButton.IsEnabled = true;
+            _telemetryTimer.Start();
+            await PollTelemetryAsync();
+        }
+        catch (Exception ex)
+        {
+            DiagnosticsText.Text = ex.Message;
+            ConnectionState.Text = _isPersian ? "اتصال ناموفق" : "CONNECTION FAILED";
+            ConnectionHint.Text = ex.Message;
+            UpdateRadarState(false);
+            ConnectButton.IsEnabled = true;
+            if (_sessionInitialized)
+            {
+                try { await _nativeGate.WaitAsync(); try { await Task.Run(() => NativeBridge.Shutdown()); } finally { _nativeGate.Release(); } }
+                catch { }
+                _sessionInitialized = false;
+            }
+        }
+        finally { DiagnosticsButton.IsEnabled = true; }
+    }
+
+    private async void DisconnectButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_sessionInitialized) return;
+        DisconnectButton.IsEnabled = false;
+        try
+        {
+            await _nativeGate.WaitAsync();
+            try
+            {
+                var result = await Task.Run(() => NativeBridge.Stop());
+                DiagnosticsText.Text = result.Message;
+                if (result.Result != 0) throw new InvalidOperationException(result.Message);
+            }
+            finally { _nativeGate.Release(); }
+            await PollTelemetryAsync();
+        }
+        catch (Exception ex) { DiagnosticsText.Text = ex.Message; }
+    }
+
+    private async Task PollTelemetryAsync()
+    {
+        if (!_sessionInitialized || _polling || _closing) return;
+        _polling = true;
+        try
+        {
+            await _nativeGate.WaitAsync();
+            (int Result, NativeTelemetry Telemetry) result;
+            try { result = await Task.Run(() => NativeBridge.Telemetry()); }
+            finally { _nativeGate.Release(); }
+            if (result.Result != 0) return;
+            var t = result.Telemetry;
+            DownloadValue.Text = FormatRate(t.DownloadBytesPerSecond);
+            UploadValue.Text = FormatRate(t.UploadBytesPerSecond);
+            BackendValue.Text = t.Backend == 0 ? "Aether" : t.Backend == 1 ? "Psiphon" : "—";
+            TunValue.Text = "HEV";
+            bool connected = t.State == 4;
+            bool connecting = t.State == 1 || t.State == 2 || t.State == 3 || t.State == 6;
+            bool failed = t.State == 5;
+            UpdateRadarState(connected, connecting, failed);
+            SessionValue.Text = connected ? (_isPersian ? "متصل" : "Connected") :
+                connecting ? (_isPersian ? "در حال اتصال" : "Connecting") :
+                failed ? (_isPersian ? "خطا" : "Error") : (_isPersian ? "قطع‌شده" : "Disconnected");
+            ConnectionState.Text = connected ? (_isPersian ? "اتصال VPN برقرار است" : "VPN CONNECTED") :
+                connecting ? (_isPersian ? "در حال برقراری تونل..." : "TUNNEL CONNECTING") :
+                failed ? (_isPersian ? "خطای موتور VPN" : "VPN ENGINE ERROR") :
+                (_isPersian ? "VPN قطع است" : "VPN DISCONNECTED");
+            string detail = !string.IsNullOrWhiteSpace(t.LastError) ? t.LastError : t.StatusMessage;
+            ConnectionHint.Text = string.IsNullOrWhiteSpace(detail) ? " " : detail;
+            if (t.State == 0) { ConnectButton.IsEnabled = true; DisconnectButton.IsEnabled = false; }
+            else { ConnectButton.IsEnabled = false; DisconnectButton.IsEnabled = true; }
+        }
+        catch (Exception ex) { DiagnosticsText.Text = ex.Message; }
+        finally { _polling = false; }
+    }
+
+    private static string FormatRate(ulong bytes)
+    {
+        double value = bytes;
+        string[] units = { "B/s", "KB/s", "MB/s", "GB/s" };
+        int i = 0;
+        while (value >= 1024 && i < units.Length - 1) { value /= 1024; i++; }
+        return string.Format("{0:0.##} {1}", value, units[i]);
+    }
+
+    private async void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_allowClose) return;
+        if (!_sessionInitialized) return;
+        e.Cancel = true;
+        if (_closing) return;
+        _closing = true;
+        _telemetryTimer.Stop();
+        StopAnimations();
+        try
+        {
+            await _nativeGate.WaitAsync();
+            try
+            {
+                await Task.Run(() => NativeBridge.Stop());
+                await Task.Run(() => NativeBridge.Shutdown());
+            }
+            finally { _nativeGate.Release(); }
+        }
+        catch { }
+        _sessionInitialized = false;
+        _allowClose = true;
+        Close();
+    }
+
     private void SetLanguage(bool fa)
     {
         FlowDirection = fa ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
@@ -204,6 +351,8 @@ public partial class MainWindow : Window
         UploadLabel.Text = fa ? "↑ آپلود" : "↑ UPLOAD";
         DiagnosticsLabel.Text = fa ? "ابزارهای تشخیصی" : "DIAGNOSTICS";
         DiagnosticsButton.Content = fa ? "بررسی هسته و موتورها" : "Inspect core and engines";
+        ConnectButton.Content = fa ? "اتصال" : "Connect";
+        DisconnectButton.Content = fa ? "قطع اتصال" : "Disconnect";
         if (DiagnosticsText.Text.StartsWith("Inspection has not", StringComparison.Ordinal) || DiagnosticsText.Text.StartsWith("بررسی هنوز", StringComparison.Ordinal))
             DiagnosticsText.Text = fa ? "بررسی هنوز اجرا نشده است. این آزمایش تونل را روشن نمی‌کند." : "Inspection has not been run. This test does not start a tunnel.";
     }
