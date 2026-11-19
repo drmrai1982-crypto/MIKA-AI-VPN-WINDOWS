@@ -200,7 +200,7 @@ public partial class MainWindow : Window
                 : (_isPersian ? $"بررسی ناموفق ({result.Result})" : $"Inspection failed ({result.Result})");
         }
         catch (Exception ex) { DiagnosticsText.Text = (_isPersian ? "خطا: " : "Error: ") + ex.Message; }
-        finally { DiagnosticsButton.IsEnabled = true; }
+        finally { DiagnosticsButton.IsEnabled = !_sessionInitialized; }
     }
 
 
@@ -312,7 +312,7 @@ public partial class MainWindow : Window
             bool connected = t.State == 4;
             bool connecting = t.State == 1 || t.State == 2 || t.State == 3 || t.State == 6;
             bool failed = t.State == 5;
-            UpdateRadarState(connected, connecting, failed);
+            UpdateRadarState(connected, connecting);
             SessionValue.Text = connected ? (_isPersian ? "متصل" : "Connected") :
                 connecting ? (_isPersian ? "در حال اتصال" : "Connecting") :
                 failed ? (_isPersian ? "خطا" : "Error") : (_isPersian ? "قطع‌شده" : "Disconnected");
