@@ -27,7 +27,7 @@ public partial class MainWindow : Window
     private bool _closing;
     private bool _allowClose;
     private readonly string _ffiDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "hev-engine");
-    private readonly string _dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MIKA AI VPN");
+    private readonly string _dataDirectory = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MIKA AI VPN");
 
     public MainWindow()
     {
@@ -214,7 +214,7 @@ public partial class MainWindow : Window
         try
         {
             Directory.CreateDirectory(_dataDirectory);
-            if (!File.Exists(Path.Combine(_ffiDirectory, "fcae_ffi.dll")))
+            if (!File.Exists(System.IO.Path.Combine(_ffiDirectory, "fcae_ffi.dll")))
                 throw new FileNotFoundException("fcae_ffi.dll was not found in the runtime folder.");
             await _nativeGate.WaitAsync();
             try
