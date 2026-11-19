@@ -292,7 +292,12 @@ public partial class MainWindow : Window
             finally { _nativeGate.Release(); }
             await PollTelemetryAsync();
         }
-        catch (Exception ex) { DiagnosticsText.Text = ex.Message; }
+        catch (Exception ex)
+        {
+            _stopRequested = false;
+            DisconnectButton.IsEnabled = true;
+            DiagnosticsText.Text = ex.Message;
+        }
     }
 
     private async Task PollTelemetryAsync()
