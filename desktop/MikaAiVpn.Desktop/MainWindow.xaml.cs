@@ -310,7 +310,14 @@ public partial class MainWindow : Window
             (int Result, NativeTelemetry Telemetry) result;
             try { result = await Task.Run(() => NativeBridge.Telemetry()); }
             finally { _nativeGate.Release(); }
-            if (result.Result != 0) return;
+            if (result.Result != 0)
+            {
+                DiagnosticsText.Text = result.Message;
+                ConnectionHint.Text = result.Message;
+                ConnectionState.Text = _isPersian ? "خطا در دریافت وضعیت هسته" : "NATIVE TELEMETRY ERROR";
+                UpdateRadarState(false);
+                return;
+            }
             var t = result.Telemetry;
             DownloadValue.Text = FormatRate(t.DownloadBytesPerSecond);
             UploadValue.Text = FormatRate(t.UploadBytesPerSecond);
